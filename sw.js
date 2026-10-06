@@ -1,5 +1,5 @@
 // Service Worker for LoanPulse — Smart EMI Tracker & Reminders
-const CACHE_NAME = 'loanpulse-v12';
+const CACHE_NAME = 'loanpulse-v14';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -38,6 +38,27 @@ self.addEventListener('fetch', (event) => {
       return response || fetch(event.request).catch(() => caches.match('./index.html'));
     })
   );
+});
+
+// PostMessage listener to trigger notifications reliably from page on mobile & desktop
+self.addEventListener('message', (event) => {
+  if (event.data && (event.data.type === 'SHOW_NOTIFICATION' || event.data.type === 'TEST_REMINDER')) {
+    const title = event.data.title || '🔔 LoanPulse EMI Reminder';
+    const options = {
+      body: event.data.body || 'Automated alerts are working! We will remind you 3 days before your EMI date.',
+      icon: 'assets/app-icon.jpg',
+      badge: 'assets/app-icon.jpg',
+      vibrate: [200, 100, 200, 100, 200],
+      tag: 'loanpulse-emi-alert-' + Date.now(),
+      renotify: true,
+      data: {
+        url: './index.html'
+      }
+    };
+    event.waitUntil(
+      self.registration.showNotification(title, options)
+    );
+  }
 });
 
 // Push notification listener

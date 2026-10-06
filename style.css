@@ -1904,6 +1904,20 @@ body {
     border-radius: var(--radius-full) !important;
     flex-shrink: 0 !important;
   }
+  #vaultSecurityBtn .btn-text {
+    display: none !important;
+  }
+  #vaultSecurityBtn {
+    width: 38px !important;
+    height: 38px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.1rem !important;
+    border-radius: var(--radius-full) !important;
+    flex-shrink: 0 !important;
+  }
   #openAddLoanModalBtn {
     width: 38px !important;
     height: 38px !important;
@@ -2636,5 +2650,232 @@ body {
     bottom: calc(72px + env(safe-area-inset-bottom, 8px));
     max-width: unset;
   }
+}
+
+/* ==========================================================================
+   Encrypted Vault & PIN Lock Screen Styles
+   ========================================================================== */
+.lock-screen-backdrop {
+  z-index: 9999 !important;
+  background: rgba(11, 15, 25, 0.96) !important;
+  backdrop-filter: blur(20px) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lock-screen-box {
+  background: var(--bg-card);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(99, 102, 241, 0.2);
+  border-radius: 24px;
+  padding: 2.25rem 2rem;
+  max-width: 360px;
+  width: 90%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: scaleUp 0.3s ease;
+}
+
+.lock-icon-badge {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.2));
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  font-size: 1.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+.lock-screen-box h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+  color: #fff;
+}
+
+.lock-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.4;
+}
+
+.pin-dots-display {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.pin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.pin-dot.filled {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px #38bdf8;
+  transform: scale(1.1);
+}
+
+.pin-error-msg {
+  color: #fb7185;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  width: 100%;
+  max-width: 260px;
+  margin-bottom: 1.5rem;
+}
+
+.pin-key {
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s ease;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.pin-key:active {
+  background: rgba(99, 102, 241, 0.35);
+  transform: scale(0.92);
+}
+
+.pin-key-action {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.lock-footer-info {
+  font-size: 0.72rem;
+  color: #34d399;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Vault Settings Modal Styles */
+.vault-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  padding: 1.25rem 0;
+}
+
+.vault-status-card {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 14px;
+  padding: 1rem;
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+
+.vsc-icon {
+  font-size: 1.5rem;
+}
+
+.vsc-info h4 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.vsc-info p {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.vault-option-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 1.1rem;
+}
+
+.vault-option-card h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  color: #fff;
+}
+
+.pin-change-section {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.pin-change-section label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.pin-input-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.pin-input-group input {
+  max-width: 140px;
+  letter-spacing: 0.3em;
+  font-size: 1.1rem;
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.pin-status-note {
+  font-size: 0.72rem;
+  color: #38bdf8;
+  font-weight: 500;
+}
+
+.vault-action-buttons {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  flex-wrap: wrap;
 }
 

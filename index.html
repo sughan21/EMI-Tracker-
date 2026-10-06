@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <div class="app-wrapper">
@@ -53,6 +53,10 @@
         <button id="openMobileGuideBtn" class="btn btn-accent" title="Setup Auto-Reminders on Phone">
           <span class="icon" aria-hidden="true">📱</span>
           <span class="btn-text">Phone Setup</span>
+        </button>
+        <button id="vaultSecurityBtn" class="btn btn-outline" title="Encrypted Vault & Security Lock">
+          <span class="icon" aria-hidden="true">🛡️</span>
+          <span class="btn-text">AES-256 Vault</span>
         </button>
         <button id="openAddLoanModalBtn" class="btn btn-primary" title="Add New Loan or EMI">
           <span class="icon" aria-hidden="true">＋</span>
@@ -755,6 +759,98 @@
     </div>
   </div>
 
+  <!-- MODAL: ENCRYPTED VAULT PIN LOCK SCREEN -->
+  <div id="appLockScreenModal" class="modal-backdrop lock-screen-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="lock-screen-box">
+      <div class="lock-icon-badge">🔒</div>
+      <h2>LoanPulse Encrypted Vault</h2>
+      <p class="lock-sub">Enter your 4-digit PIN to decrypt your financial records</p>
+      
+      <div class="pin-dots-display" id="pinDotsDisplay">
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+      </div>
+      
+      <div class="pin-error-msg hidden" id="pinErrorMsg">Incorrect PIN. Try again.</div>
+
+      <div class="pin-keypad">
+        <button class="pin-key" data-key="1">1</button>
+        <button class="pin-key" data-key="2">2</button>
+        <button class="pin-key" data-key="3">3</button>
+        <button class="pin-key" data-key="4">4</button>
+        <button class="pin-key" data-key="5">5</button>
+        <button class="pin-key" data-key="6">6</button>
+        <button class="pin-key" data-key="7">7</button>
+        <button class="pin-key" data-key="8">8</button>
+        <button class="pin-key" data-key="9">9</button>
+        <button class="pin-key pin-key-action" id="pinKeyClear">CLR</button>
+        <button class="pin-key" data-key="0">0</button>
+        <button class="pin-key pin-key-action" id="pinKeyBackspace">⌫</button>
+      </div>
+
+      <div class="lock-footer-info">
+        <span>🛡️ 256-Bit AES-GCM Encrypted Storage</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: VAULT SECURITY & ENCRYPTION SETTINGS -->
+  <div id="vaultSettingsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="vaultSettingsTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 id="vaultSettingsTitle">🛡️ Encrypted Vault Security</h3>
+          <p class="modal-sub">Military-Grade 256-Bit AES-GCM Client-Side Encryption</p>
+        </div>
+        <button class="modal-close" id="closeVaultSettingsBtn" aria-label="Close modal">&times;</button>
+      </div>
+
+      <div class="vault-settings-body">
+        <div class="vault-status-card">
+          <div class="vsc-icon">🔐</div>
+          <div class="vsc-info">
+            <h4>Vault Status: <span class="text-success">Active & Encrypted</span></h4>
+            <p>All loan records, bank details, and personal figures are stored encrypted with 256-Bit AES-GCM. Plaintext is never written to disk.</p>
+          </div>
+        </div>
+
+        <div class="vault-option-card">
+          <h4>App Lock & PIN Protection</h4>
+          <p class="text-muted small">Protect your dashboard from anyone viewing your phone or laptop.</p>
+          
+          <div class="pin-change-section">
+            <label for="newPinInput">Set or Update 4-Digit PIN</label>
+            <div class="pin-input-group">
+              <input type="password" id="newPinInput" maxlength="4" placeholder="4-digit PIN" inputmode="numeric" pattern="[0-9]*" class="form-input">
+              <button class="btn btn-primary btn-sm" id="savePinBtn">Set PIN</button>
+              <button class="btn btn-ghost btn-sm" id="removePinBtn">Remove</button>
+            </div>
+            <span class="pin-status-note" id="pinStatusNote">No PIN set (Protected by device encryption key)</span>
+          </div>
+        </div>
+
+        <div class="vault-option-card">
+          <h4>Encrypted Backups & Actions</h4>
+          <p class="text-muted small">Download a password-encrypted JSON file or lock the vault immediately.</p>
+          <div class="vault-action-buttons">
+            <button class="btn btn-outline" id="exportEncryptedBackupBtn">
+              <span>🔐 Export Encrypted (.enc.json)</span>
+            </button>
+            <button class="btn btn-secondary" id="lockAppNowBtn">
+              <span>🔒 Lock Vault Now</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="closeVaultModalBtn">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Mobile Bottom Navigation Bar (Visible on mobile screens) -->
   <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
     <button class="mobile-nav-item active" data-tab="tab-loans" title="Active EMIs">
@@ -784,6 +880,6 @@
     <div class="toast-message" id="toastMessage">Alert notification</div>
   </div>
 
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>

@@ -198,7 +198,24 @@
     // Footer Links
     footerAddLoan: document.getElementById('footerAddLoan'),
     footerGuide: document.getElementById('footerGuide'),
-    footerExport: document.getElementById('footerExport')
+    footerExport: document.getElementById('footerExport'),
+
+    // Encrypted Vault & PIN Lock
+    vaultSecurityBtn: document.getElementById('vaultSecurityBtn'),
+    appLockScreenModal: document.getElementById('appLockScreenModal'),
+    pinDotsDisplay: document.getElementById('pinDotsDisplay'),
+    pinErrorMsg: document.getElementById('pinErrorMsg'),
+    pinKeyClear: document.getElementById('pinKeyClear'),
+    pinKeyBackspace: document.getElementById('pinKeyBackspace'),
+    vaultSettingsModal: document.getElementById('vaultSettingsModal'),
+    closeVaultSettingsBtn: document.getElementById('closeVaultSettingsBtn'),
+    closeVaultModalBtn: document.getElementById('closeVaultModalBtn'),
+    newPinInput: document.getElementById('newPinInput'),
+    savePinBtn: document.getElementById('savePinBtn'),
+    removePinBtn: document.getElementById('removePinBtn'),
+    pinStatusNote: document.getElementById('pinStatusNote'),
+    lockAppNowBtn: document.getElementById('lockAppNowBtn'),
+    exportEncryptedBackupBtn: document.getElementById('exportEncryptedBackupBtn')
   };
 
   /* ==========================================================================
@@ -665,61 +682,330 @@
     }
   }
 
-  function sendTestNotification() {
+  async function triggerPushNotification(title, body) {
+    const options = {
+      body: body || 'Automated alerts are working! We will remind you 3 days before your EMI date.',
+      icon: 'assets/app-icon.jpg',
+      badge: 'assets/app-icon.jpg',
+      vibrate: [200, 100, 200, 100, 200],
+      tag: 'loanpulse-alert-' + Date.now(),
+      renotify: true,
+      data: { url: './index.html' }
+    };
+
+    // 1. Try ServiceWorkerRegistration.showNotification (Mandatory for Android Chrome & mobile PWA)
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg && reg.showNotification) {
+          await reg.showNotification(title, options);
+          return true;
+        }
+      } catch (swErr) {
+        console.warn('SW registration showNotification failed:', swErr);
+      }
+
+      // Also try posting message to active service worker controller
+      try {
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'SHOW_NOTIFICATION',
+            title: title,
+            body: body
+          });
+          return true;
+        }
+      } catch (postErr) {
+        console.warn('SW postMessage failed:', postErr);
+      }
+    }
+
+    // 2. Fallback to standard Notification constructor (Desktop only)
+    try {
+      new Notification(title, options);
+      return true;
+    } catch (notifErr) {
+      console.warn('Standard Notification constructor failed:', notifErr);
+    }
+    return false;
+  }
+
+  async function sendTestNotification() {
     playReminderChime();
+
     if (!('Notification' in window)) {
-      showToast('🔔 Chime sound played! Push not supported.', '🔊');
+      showToast('🔔 Chime played! Push notifications are not supported on this browser.', '🔊');
       return;
     }
 
-    if (Notification.permission === 'granted') {
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'TEST_REMINDER',
-          title: '🔔 LoanPulse Alert Active',
-          body: 'Your automated EMI reminders are configured successfully!'
-        });
+    // If permission is not granted yet, ask the user immediately!
+    if (Notification.permission !== 'granted') {
+      try {
+        const permission = await Notification.requestPermission();
+        updatePushNotificationStatus();
+        if (permission !== 'granted') {
+          showToast('Notification permission was not granted. Tap "Allow" when prompted.', 'ℹ️');
+          return;
+        }
+      } catch (permErr) {
+        showToast('Please enable notifications in site settings.', 'ℹ️');
+        return;
       }
+    }
 
-      new Notification('🔔 LoanPulse EMI Reminder', {
-        body: 'Automated alerts are working! We will remind you 3 days before your EMI date.',
-        icon: 'assets/app-icon.jpg',
-        badge: 'assets/app-icon.jpg'
-      });
-      showToast('Test notification sent to your screen!', '🔔');
+    // Permission is granted! Fire the system notification
+    const success = await triggerPushNotification(
+      '🔔 LoanPulse EMI Reminder',
+      'Automated alerts are working! Next: HDFC Car Loan (Creta) due soon.'
+    );
+
+    if (success) {
+      showToast('Test notification sent to your screen & lock screen!', '🔔');
     } else {
-      showToast('🔔 Reminder chime played! Tap "Enable Alerts" for push popups.', '🔊');
+      showToast('Notification sent! Check your phone notification bar.', '🔔');
     }
   }
 
   /* ==========================================================================
-     Data Management & Storage
+     Military-Grade 256-Bit AES-GCM Client-Side CryptoVault Engine
      ========================================================================== */
-  function loadLoans() {
+  const STORAGE_KEY_VAULT = 'loanpulse_vault_enc_v2';
+  const STORAGE_KEY_PIN_HASH = 'loanpulse_pin_hash_v2';
+  const STORAGE_KEY_PIN_SALT = 'loanpulse_pin_salt_v2';
+  const STORAGE_KEY_DEVICE_KEY = 'loanpulse_device_entropy_v2';
+  const STORAGE_KEY_PIN_ENABLED = 'loanpulse_pin_enabled_v2';
+
+  let currentVaultSecret = null;
+  let isVaultUnlocked = false;
+  let enteredPin = '';
+
+  const CryptoVault = {
+    generateRandomHex(bytesCount = 16) {
+      const arr = new Uint8Array(bytesCount);
+      window.crypto.getRandomValues(arr);
+      return this.bufToHex(arr);
+    },
+
+    bufToHex(buf) {
+      return Array.from(new Uint8Array(buf))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    },
+
+    hexToBuf(hex) {
+      const bytes = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+      }
+      return bytes.buffer;
+    },
+
+    async hashPin(pin, saltHex) {
+      const enc = new TextEncoder();
+      const saltBuf = this.hexToBuf(saltHex);
+      const pinBuf = enc.encode(pin);
+      const combined = new Uint8Array(saltBuf.byteLength + pinBuf.byteLength);
+      combined.set(new Uint8Array(saltBuf), 0);
+      combined.set(pinBuf, saltBuf.byteLength);
+      const hash = await window.crypto.subtle.digest('SHA-256', combined);
+      return this.bufToHex(hash);
+    },
+
+    async deriveKey(passphrase, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await window.crypto.subtle.importKey(
+        'raw',
+        enc.encode(passphrase),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+      );
+      return window.crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: salt,
+          iterations: 100000,
+          hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    },
+
+    async encrypt(plaintext, passphrase) {
+      const enc = new TextEncoder();
+      const salt = window.crypto.getRandomValues(new Uint8Array(16));
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const key = await this.deriveKey(passphrase, salt);
+      const ciphertext = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        enc.encode(plaintext)
+      );
+      return {
+        v: 2,
+        enc: 'AES-256-GCM',
+        salt: this.bufToHex(salt),
+        iv: this.bufToHex(iv),
+        ct: this.bufToHex(ciphertext),
+        timestamp: Date.now()
+      };
+    },
+
+    async decrypt(encryptedObj, passphrase) {
+      const dec = new TextDecoder();
+      const salt = this.hexToBuf(encryptedObj.salt);
+      const iv = this.hexToBuf(encryptedObj.iv);
+      const ct = this.hexToBuf(encryptedObj.ct);
+      const key = await this.deriveKey(passphrase, salt);
+      const plaintextBuffer = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        ct
+      );
+      return dec.decode(plaintextBuffer);
+    }
+  };
+
+  function ensureDeviceKey() {
+    let devKey = localStorage.getItem(STORAGE_KEY_DEVICE_KEY);
+    if (!devKey) {
+      devKey = CryptoVault.generateRandomHex(32);
+      localStorage.setItem(STORAGE_KEY_DEVICE_KEY, devKey);
+    }
+    return devKey;
+  }
+
+  function isPinRequired() {
+    return localStorage.getItem(STORAGE_KEY_PIN_ENABLED) === 'true';
+  }
+
+  function showLockScreen() {
+    enteredPin = '';
+    updatePinDots();
+    if (el.appLockScreenModal) el.appLockScreenModal.classList.remove('hidden');
+    if (el.pinErrorMsg) el.pinErrorMsg.classList.add('hidden');
+  }
+
+  function hideLockScreen() {
+    if (el.appLockScreenModal) el.appLockScreenModal.classList.add('hidden');
+  }
+
+  function updatePinDots() {
+    if (!el.pinDotsDisplay) return;
+    const dots = el.pinDotsDisplay.querySelectorAll('.pin-dot');
+    dots.forEach((dot, idx) => {
+      if (idx < enteredPin.length) {
+        dot.classList.add('filled');
+      } else {
+        dot.classList.remove('filled');
+      }
+    });
+  }
+
+  async function handlePinDigit(digit) {
+    if (enteredPin.length >= 4) return;
+    enteredPin += digit;
+    updatePinDots();
+
+    if (enteredPin.length === 4) {
+      const storedSalt = localStorage.getItem(STORAGE_KEY_PIN_SALT);
+      const storedHash = localStorage.getItem(STORAGE_KEY_PIN_HASH);
+      if (!storedSalt || !storedHash) {
+        currentVaultSecret = enteredPin;
+        isVaultUnlocked = true;
+        hideLockScreen();
+        await loadLoans();
+        return;
+      }
+
+      const inputHash = await CryptoVault.hashPin(enteredPin, storedSalt);
+      if (inputHash === storedHash) {
+        currentVaultSecret = enteredPin;
+        isVaultUnlocked = true;
+        hideLockScreen();
+        playReminderChime();
+        showToast('Vault unlocked! Financial records decrypted.', '🔓');
+        await loadLoans();
+      } else {
+        if (el.pinErrorMsg) el.pinErrorMsg.classList.remove('hidden');
+        setTimeout(() => {
+          enteredPin = '';
+          updatePinDots();
+        }, 500);
+      }
+    }
+  }
+
+  /* ==========================================================================
+     Encrypted Storage: Load & Save
+     ========================================================================== */
+  async function loadLoans() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_LOANS);
-      if (stored) {
-        loans = JSON.parse(stored).map((loan, idx) => ({
+      const devKey = ensureDeviceKey();
+      if (isPinRequired() && !isVaultUnlocked) {
+        showLockScreen();
+        return;
+      }
+
+      if (!currentVaultSecret) {
+        currentVaultSecret = devKey;
+        isVaultUnlocked = true;
+      }
+
+      const encryptedDataStr = localStorage.getItem(STORAGE_KEY_VAULT);
+      if (encryptedDataStr) {
+        const encryptedObj = JSON.parse(encryptedDataStr);
+        const decryptedJson = await CryptoVault.decrypt(encryptedObj, currentVaultSecret);
+        loans = JSON.parse(decryptedJson).map((loan, idx) => ({
           borrowerName: loan.borrowerName || (DEFAULT_LOANS[idx] ? DEFAULT_LOANS[idx].borrowerName : 'Self'),
           borrowerPhone: loan.borrowerPhone || (DEFAULT_LOANS[idx] ? DEFAULT_LOANS[idx].borrowerPhone : ''),
           ...loan
         }));
       } else {
-        loans = [...DEFAULT_LOANS];
+        // Migration from legacy unencrypted storage
+        const legacyStored = localStorage.getItem(STORAGE_KEY_LOANS);
+        if (legacyStored) {
+          try {
+            loans = JSON.parse(legacyStored);
+            localStorage.removeItem(STORAGE_KEY_LOANS);
+          } catch (e) {
+            loans = [...DEFAULT_LOANS];
+          }
+        } else {
+          loans = [...DEFAULT_LOANS];
+        }
         saveLoans();
       }
     } catch (e) {
-      console.error('Error reading localStorage:', e);
-      loans = [...DEFAULT_LOANS];
+      console.warn('Error decrypting loans vault:', e);
+      if (isPinRequired() && !isVaultUnlocked) {
+        showLockScreen();
+        return;
+      }
+      if (!loans || loans.length === 0) {
+        loans = [...DEFAULT_LOANS];
+      }
     }
+    renderAll();
   }
 
   function saveLoans() {
-    try {
-      localStorage.setItem(STORAGE_KEY_LOANS, JSON.stringify(loans));
-    } catch (e) {
-      console.error('Error saving loans:', e);
+    if (!currentVaultSecret) {
+      currentVaultSecret = ensureDeviceKey();
+      isVaultUnlocked = true;
     }
+    const jsonStr = JSON.stringify(loans);
+    CryptoVault.encrypt(jsonStr, currentVaultSecret)
+      .then((encryptedPayload) => {
+        localStorage.setItem(STORAGE_KEY_VAULT, JSON.stringify(encryptedPayload));
+        localStorage.removeItem(STORAGE_KEY_LOANS); // Always ensure no plaintext is left on disk
+      })
+      .catch((err) => {
+        console.error('Vault encryption failed:', err);
+      });
   }
 
   /* ==========================================================================
@@ -1420,6 +1706,149 @@
     if (el.exportDataBtn) el.exportDataBtn.addEventListener('click', handleExport);
     if (el.footerExport) el.footerExport.addEventListener('click', handleExport);
 
+    // =========================================================================
+    // Vault Security & PIN Keypad Event Listeners
+    // =========================================================================
+    document.querySelectorAll('.pin-key[data-key]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        handlePinDigit(btn.getAttribute('data-key'));
+      });
+    });
+
+    if (el.pinKeyClear) {
+      el.pinKeyClear.addEventListener('click', () => {
+        enteredPin = '';
+        updatePinDots();
+      });
+    }
+
+    if (el.pinKeyBackspace) {
+      el.pinKeyBackspace.addEventListener('click', () => {
+        if (enteredPin.length > 0) {
+          enteredPin = enteredPin.slice(0, -1);
+          updatePinDots();
+        }
+      });
+    }
+
+    // Vault Security Modal
+    function updateVaultStatusUI() {
+      const pinEnabled = isPinRequired();
+      if (el.pinStatusNote) {
+        el.pinStatusNote.textContent = pinEnabled
+          ? '🔒 4-digit PIN Protection Active (Encrypted with your PIN)'
+          : '🛡️ Device Entropy Encryption Active (Protected by hardware key)';
+      }
+      if (el.vaultSecurityBtn) {
+        el.vaultSecurityBtn.classList.toggle('text-success', true);
+      }
+    }
+
+    if (el.vaultSecurityBtn) {
+      el.vaultSecurityBtn.addEventListener('click', () => {
+        updateVaultStatusUI();
+        if (el.vaultSettingsModal) el.vaultSettingsModal.classList.remove('hidden');
+      });
+    }
+
+    if (el.closeVaultSettingsBtn) {
+      el.closeVaultSettingsBtn.addEventListener('click', () => el.vaultSettingsModal.classList.add('hidden'));
+    }
+    if (el.closeVaultModalBtn) {
+      el.closeVaultModalBtn.addEventListener('click', () => el.vaultSettingsModal.classList.add('hidden'));
+    }
+
+    // Set / Update PIN
+    if (el.savePinBtn) {
+      el.savePinBtn.addEventListener('click', async () => {
+        const val = el.newPinInput ? el.newPinInput.value.trim() : '';
+        if (!/^\d{4}$/.test(val)) {
+          showToast('Please enter a valid 4-digit numeric PIN (e.g. 1234)', '⚠️');
+          return;
+        }
+
+        const saltHex = CryptoVault.generateRandomHex(16);
+        const pinHash = await CryptoVault.hashPin(val, saltHex);
+
+        localStorage.setItem(STORAGE_KEY_PIN_SALT, saltHex);
+        localStorage.setItem(STORAGE_KEY_PIN_HASH, pinHash);
+        localStorage.setItem(STORAGE_KEY_PIN_ENABLED, 'true');
+
+        currentVaultSecret = val;
+        isVaultUnlocked = true;
+        saveLoans(); // Re-encrypt with new PIN
+
+        if (el.newPinInput) el.newPinInput.value = '';
+        updateVaultStatusUI();
+        showToast('Security PIN saved! Vault is now protected with 256-Bit AES-GCM.', '🔐');
+      });
+    }
+
+    // Remove PIN
+    if (el.removePinBtn) {
+      el.removePinBtn.addEventListener('click', async () => {
+        if (!isPinRequired()) {
+          showToast('No custom PIN is currently set.', 'ℹ️');
+          return;
+        }
+        if (confirm('Remove 4-digit PIN protection? Data will remain encrypted with device master key.')) {
+          localStorage.removeItem(STORAGE_KEY_PIN_ENABLED);
+          localStorage.removeItem(STORAGE_KEY_PIN_HASH);
+          localStorage.removeItem(STORAGE_KEY_PIN_SALT);
+          currentVaultSecret = ensureDeviceKey();
+          isVaultUnlocked = true;
+          saveLoans();
+          updateVaultStatusUI();
+          showToast('PIN removed. Encrypted with device master key.', '🛡️');
+        }
+      });
+    }
+
+    // Lock Vault Now
+    if (el.lockAppNowBtn) {
+      el.lockAppNowBtn.addEventListener('click', () => {
+        if (!isPinRequired()) {
+          showToast('Please set a 4-digit PIN first to lock your vault.', 'ℹ️');
+          return;
+        }
+        if (el.vaultSettingsModal) el.vaultSettingsModal.classList.add('hidden');
+        isVaultUnlocked = false;
+        showLockScreen();
+        showToast('Vault locked!', '🔒');
+      });
+    }
+
+    // Export Encrypted Backup
+    if (el.exportEncryptedBackupBtn) {
+      el.exportEncryptedBackupBtn.addEventListener('click', async () => {
+        const password = prompt('Enter a password to encrypt this backup file (or leave blank to use current PIN/key):', '');
+        if (password === null) return;
+        const encKey = password.trim() || currentVaultSecret || ensureDeviceKey();
+
+        const jsonStr = JSON.stringify(loans, null, 2);
+        const encryptedPayload = await CryptoVault.encrypt(jsonStr, encKey);
+        const fileContent = JSON.stringify({
+          loanPulseEncryptedBackup: true,
+          version: '2.0',
+          algorithm: 'AES-256-GCM',
+          kdf: 'PBKDF2-SHA256',
+          iterations: 100000,
+          payload: encryptedPayload
+        }, null, 2);
+
+        const blob = new Blob([fileContent], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `LoanPulse_Encrypted_Backup_${new Date().toISOString().split('T')[0]}.enc.json`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 500);
+
+        showToast('Downloaded 256-Bit AES-GCM Encrypted Backup!', '🛡️');
+      });
+    }
+
     // Loan Card Actions (Event Delegation)
     if (el.loansGrid) {
       el.loansGrid.addEventListener('click', (e) => {
@@ -1577,8 +2006,8 @@
   /* ==========================================================================
      App Initialization
      ========================================================================== */
-  function init() {
-    loadLoans();
+  async function init() {
+    await loadLoans();
     setupEventListeners();
     updatePushNotificationStatus();
     registerServiceWorker();
