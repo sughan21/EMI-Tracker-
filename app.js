@@ -287,6 +287,9 @@
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return;
       const ctx = new AudioContext();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
 
       // First chime tone (D5 - 587.33 Hz)
       const osc1 = ctx.createOscillator();
@@ -560,7 +563,12 @@
       ? `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`
       : `https://wa.me/?text=${encodeURIComponent(message)}`;
     
-    window.open(waUrl, '_blank');
+    const isMobileDevice = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+    if (isMobileDevice) {
+      window.location.href = waUrl;
+    } else {
+      window.open(waUrl, '_blank');
+    }
     showToast(`Opening WhatsApp reminder for ${borrower}...`, '💬');
   }
 
@@ -629,21 +637,32 @@
   }
 
   function requestPushPermission() {
-    if (!('Notification' in window)) {
-      showToast('Browser notifications are not supported on this browser.', '⚠️');
+    const isSecure = window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!('Notification' in window) || !isSecure) {
+      showToast('Push requires HTTPS. On mobile Wi-Fi, use WhatsApp & Calendar alerts below!', '💡');
+      if (el.mobileGuideModal) el.mobileGuideModal.classList.remove('hidden');
       return;
     }
 
-    Notification.requestPermission().then((permission) => {
-      updatePushNotificationStatus();
-      if (permission === 'granted') {
-        playReminderChime();
-        showToast('Notifications enabled! You will receive due alerts.', '🎉');
-        sendTestNotification();
-      } else {
-        showToast('Notification permission was not granted.', 'ℹ️');
+    try {
+      const handlePerm = (permission) => {
+        updatePushNotificationStatus();
+        if (permission === 'granted') {
+          playReminderChime();
+          showToast('Notifications enabled! You will receive due alerts.', '🎉');
+          sendTestNotification();
+        } else {
+          showToast('Notification permission was not granted.', 'ℹ️');
+        }
+      };
+
+      const result = Notification.requestPermission(handlePerm);
+      if (result && result.then) {
+        result.then(handlePerm).catch(() => {});
       }
-    });
+    } catch (err) {
+      showToast('Notifications unavailable on this device.', '⚠️');
+    }
   }
 
   function sendTestNotification() {
@@ -1321,6 +1340,25 @@
     if (el.closeGuideModalBtn) el.closeGuideModalBtn.addEventListener('click', () => el.mobileGuideModal.classList.add('hidden'));
     if (el.guideUnderstoodBtn) el.guideUnderstoodBtn.addEventListener('click', () => el.mobileGuideModal.classList.add('hidden'));
 
+    // Backdrop tap-outside-to-dismiss for all modals (standard mobile UX)
+    [el.loanModal, el.amortizationModal, el.mobileGuideModal].forEach((modal) => {
+      if (!modal) return;
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.add('hidden');
+        }
+      });
+    });
+
+    // Escape key dismiss
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (el.loanModal) el.loanModal.classList.add('hidden');
+        if (el.amortizationModal) el.amortizationModal.classList.add('hidden');
+        if (el.mobileGuideModal) el.mobileGuideModal.classList.add('hidden');
+      }
+    });
+
     // Alert Bar Dismiss
     if (el.dismissAlertBtn) {
       el.dismissAlertBtn.addEventListener('click', () => {
@@ -1362,15 +1400,20 @@
     if (el.seedDemoDataBtn) el.seedDemoDataBtn.addEventListener('click', handleSeed);
     if (el.emptySeedBtn) el.emptySeedBtn.addEventListener('click', handleSeed);
 
-    // Export Data
+    // Export Data (Blob object URL for full mobile Chrome & Safari support)
     const handleExport = () => {
-      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(loans, null, 2));
+      const jsonStr = JSON.stringify(loans, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
       const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', dataStr);
-      downloadAnchor.setAttribute('download', `LoanPulse_Backup_${new Date().toISOString().split('T')[0]}.json`);
+      downloadAnchor.href = url;
+      downloadAnchor.download = `LoanPulse_Backup_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
-      downloadAnchor.remove();
+      setTimeout(() => {
+        downloadAnchor.remove();
+        URL.revokeObjectURL(url);
+      }, 500);
       showToast('Loans backup downloaded as JSON!', '💾');
     };
     if (el.exportDataBtn) el.exportDataBtn.addEventListener('click', handleExport);
