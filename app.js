@@ -761,12 +761,13 @@
     if (el.metricMonthlyEmi) el.metricMonthlyEmi.textContent = formatINR(totalMonthlyEmi);
     if (el.metricPaidThisMonth) el.metricPaidThisMonth.textContent = `${formatINR(totalPaidThisMonth)} paid this month`;
     if (el.metricTotalOutstanding) el.metricTotalOutstanding.textContent = formatINR(totalOutstanding);
-    if (el.metricActiveLoanCount) el.metricActiveLoanCount.textContent = `${loans.length} active loan commitments`;
+    if (el.metricActiveLoanCount) el.metricActiveLoanCount.textContent = `${loans.length} active commitments`;
     if (el.loansCountBadge) el.loansCountBadge.textContent = loans.length;
 
     if (nextUpcoming) {
       if (el.metricNextDue) el.metricNextDue.textContent = nextUpcoming.loan.name;
-      if (el.metricNextDueDate) el.metricNextDueDate.textContent = `${nextUpcoming.dueInfo.label} (${formatINR(nextUpcoming.loan.emi)})`;
+      const cleanDueLabel = nextUpcoming.dueInfo.label.replace('by ', '').replace('!', '');
+      if (el.metricNextDueDate) el.metricNextDueDate.textContent = `${cleanDueLabel} (${formatINR(nextUpcoming.loan.emi)})`;
       if (el.nextDueTicker) el.nextDueTicker.textContent = `Next: ${nextUpcoming.loan.name} — ${nextUpcoming.dueInfo.label}`;
     } else {
       if (el.metricNextDue) el.metricNextDue.textContent = 'All Clear! 🎉';
