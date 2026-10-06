@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
   <div class="app-wrapper">
@@ -42,6 +42,14 @@
       </div>
 
       <div class="nav-actions">
+        <div id="offlineIndicatorBadge" class="offline-pill" title="Status: Works 100% Offline. Your encrypted vault is stored locally.">
+          <span class="offline-dot"></span>
+          <span id="offlineIndicatorText" class="offline-text">Offline Ready</span>
+        </div>
+        <button id="installAppBtn" class="btn btn-outline hidden" title="Install LoanPulse App on your phone / computer">
+          <span class="icon" aria-hidden="true">📲</span>
+          <span class="btn-text">Install App</span>
+        </button>
         <button id="notifyPermissionBtn" class="btn btn-outline" title="Enable Mobile & Browser Notifications">
           <span class="icon" aria-hidden="true">🔔</span>
           <span id="notifyStatusLabel">Enable Alerts</span>
@@ -561,6 +569,7 @@
         <input type="hidden" id="loanEditId">
         <div class="modal-body-scroll">
 
+        <!-- Row 1: Loan Name & Category -->
         <div class="form-row">
           <div class="form-group flex-2">
             <label for="formLoanName">Loan / EMI Name *</label>
@@ -580,75 +589,98 @@
           </div>
         </div>
 
+        <!-- Row 2: Borrower & WhatsApp Contact -->
         <div class="form-row">
           <div class="form-group flex-1">
-            <label for="formBorrowerName">👤 Borrower / Loan Holder Name *</label>
-            <input type="text" id="formBorrowerName" placeholder="e.g. Sughan Rithvik, Self, Father" required>
-            <small class="form-help">Person whose name the loan is registered under</small>
+            <label for="formBorrowerName">👤 Borrower Name <span class="tag-opt">Optional</span></label>
+            <input type="text" id="formBorrowerName" placeholder="e.g. Self, Sughan, Father">
+            <small class="form-help">Defaults to 'Self' if left blank</small>
           </div>
           <div class="form-group flex-1">
-            <label for="formBorrowerPhone">📱 Reminder Mobile / WhatsApp Number *</label>
-            <input type="tel" id="formBorrowerPhone" placeholder="e.g. 9876543210 or +919876543210" required>
-            <small class="form-help">Number to receive WhatsApp and SMS alerts</small>
+            <label for="formBorrowerPhone">📱 Mobile / WhatsApp <span class="tag-opt">Optional</span></label>
+            <input type="tel" id="formBorrowerPhone" placeholder="e.g. 9876543210 (For alerts)">
+            <small class="form-help">Only needed for WhatsApp/SMS reminders</small>
           </div>
         </div>
 
+        <!-- Row 3: Bank Name & Account ID -->
         <div class="form-row">
           <div class="form-group flex-1">
-            <label for="formBankName">Bank / Lender Name *</label>
-            <input type="text" id="formBankName" placeholder="e.g. HDFC Bank, SBI, ICICI, Bajaj" required>
+            <label for="formBankName">Bank / Lender <span class="tag-opt">Optional</span></label>
+            <input type="text" id="formBankName" placeholder="e.g. HDFC Bank, SBI, Bajaj">
+            <small class="form-help">Finance provider or lender</small>
           </div>
           <div class="form-group flex-1">
-            <label for="formLoanNumber">Account / Loan ID (Optional)</label>
+            <label for="formLoanNumber">Account / Loan ID <span class="tag-opt">Optional</span></label>
             <input type="text" id="formLoanNumber" placeholder="e.g. LAN-98234812">
+            <small class="form-help">Agreement or account reference</small>
           </div>
         </div>
 
-        <div class="form-row">
+        <!-- Row 4: Principal, Interest Rate & Tenure -->
+        <div class="form-row form-row-financials">
           <div class="form-group flex-1">
-            <label for="formPrincipal">Principal Loan Amount (₹) *</label>
-            <input type="number" id="formPrincipal" min="1000" step="500" placeholder="1000000" required>
+            <label for="formPrincipal">Principal Amount (₹) *</label>
+            <input type="number" id="formPrincipal" min="100" step="100" placeholder="e.g. 50000" required>
+            <small class="form-help">Total loan amount</small>
           </div>
           <div class="form-group flex-1">
-            <label for="formInterestRate">Annual Interest Rate (%) *</label>
-            <input type="number" id="formInterestRate" min="0" max="100" step="0.05" placeholder="8.5" required>
+            <label for="formInterestRate">Interest Rate (% p.a.)</label>
+            <input type="number" id="formInterestRate" min="0" max="100" step="0.05" placeholder="8.5 (or 0% No-Cost)">
+            <small class="form-help">0% for No-Cost EMI</small>
           </div>
           <div class="form-group flex-1">
-            <label for="formTenureMonths">Tenure (Total Months) *</label>
-            <input type="number" id="formTenureMonths" min="1" max="480" placeholder="60" required>
+            <label for="formTenureMonths">Tenure (Months) *</label>
+            <input type="number" id="formTenureMonths" min="1" max="480" placeholder="e.g. 12" required>
+            <small class="form-help">Installment months</small>
           </div>
         </div>
 
-        <!-- Calculated EMI Preview Box -->
-        <div class="calculated-preview-box">
-          <div class="preview-item">
-            <span>Monthly EMI Amount:</span>
-            <strong id="formEmiPreview">₹0</strong>
+        <!-- Row 5: Monthly EMI & Total Outflow -->
+        <div class="form-row form-row-highlight">
+          <div class="form-group flex-1">
+            <div class="form-label-bar">
+              <label for="formCustomEmi">💵 Monthly EMI (₹)</label>
+              <button type="button" id="recalcEmiBtn" class="pill-action-btn" title="Calculate automatically from Principal & Interest">⚡ Auto-Calculate</button>
+            </div>
+            <input type="number" id="formCustomEmi" min="1" step="1" placeholder="Auto-calculated (or type exact EMI)">
+            <small class="form-help">Auto-filled, or enter your exact bank deduction</small>
           </div>
-          <div class="preview-item">
-            <span>Total Payable:</span>
-            <strong id="formTotalPayablePreview">₹0</strong>
+          <div class="form-group flex-1">
+            <div class="form-label-bar">
+              <label>📊 Estimated Outflow</label>
+              <span class="formula-pill">EMI &times; Months</span>
+            </div>
+            <div class="preview-outflow-box">
+              <span class="outflow-label">Total Outflow:</span>
+              <strong id="formTotalPayablePreview" class="outflow-val">₹0</strong>
+            </div>
+            <small class="form-help">Total repayment across all months</small>
           </div>
         </div>
+        <span id="formEmiPreview" style="display:none">₹0</span>
 
-        <div class="form-row">
+        <!-- Row 6: Due Day, Start Date, Paid Installments -->
+        <div class="form-row form-row-schedule">
           <div class="form-group flex-1">
-            <label for="formDueDay">Monthly EMI Due Day (1 - 31) *</label>
-            <input type="number" id="formDueDay" min="1" max="31" value="5" required>
-            <small class="form-help">Day of month payment is deducted</small>
+            <label for="formDueDay">Due Day (1 - 31)</label>
+            <input type="number" id="formDueDay" min="1" max="31" value="5">
+            <small class="form-help">Deduction day (defaults to 5th)</small>
           </div>
           <div class="form-group flex-1">
-            <label for="formStartDate">Loan Start Date *</label>
-            <input type="date" id="formStartDate" required>
+            <label for="formStartDate">Loan Start Date</label>
+            <input type="date" id="formStartDate">
+            <small class="form-help">Defaults to today</small>
           </div>
           <div class="form-group flex-1">
-            <label for="formPaidInstallments">Installments Already Paid</label>
+            <label for="formPaidInstallments">Installments Paid</label>
             <input type="number" id="formPaidInstallments" min="0" value="0">
+            <small class="form-help">Already paid (defaults to 0)</small>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="formNotes">Notes / Payment link / Remarks</label>
+          <label for="formNotes">Notes / Payment link / Remarks <span class="tag-opt">Optional</span></label>
           <input type="text" id="formNotes" placeholder="Auto-debit from salary account / NetBanking link">
         </div>
         </div><!-- /.modal-body-scroll -->
@@ -749,6 +781,14 @@
           <div class="step-body">
             <h4>WhatsApp 1-Click Payment Alerts</h4>
             <p>Click the <strong>WhatsApp</strong> icon on any loan card anytime to instantly send a cleanly formatted reminder with amount and payment details to your own chat or family member.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h4>⚡ 100% Offline & Secure</h4>
+            <p>LoanPulse is cached locally on your device. Once opened or installed, you can track loans, calculate repayments, and access your AES-256 encrypted vault anytime with <strong>zero internet or Wi-Fi</strong>.</p>
           </div>
         </div>
       </div>
@@ -880,6 +920,6 @@
     <div class="toast-message" id="toastMessage">Alert notification</div>
   </div>
 
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

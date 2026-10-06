@@ -167,6 +167,8 @@
     formPrincipal: document.getElementById('formPrincipal'),
     formInterestRate: document.getElementById('formInterestRate'),
     formTenureMonths: document.getElementById('formTenureMonths'),
+    formCustomEmi: document.getElementById('formCustomEmi'),
+    recalcEmiBtn: document.getElementById('recalcEmiBtn'),
     formEmiPreview: document.getElementById('formEmiPreview'),
     formTotalPayablePreview: document.getElementById('formTotalPayablePreview'),
     formDueDay: document.getElementById('formDueDay'),
@@ -1414,6 +1416,10 @@
       el.formPrincipal.value = editLoan.principal;
       el.formInterestRate.value = editLoan.interestRate;
       el.formTenureMonths.value = editLoan.tenureMonths;
+      if (el.formCustomEmi) {
+        el.formCustomEmi.value = editLoan.emi || '';
+        el.formCustomEmi.dataset.manual = 'true';
+      }
       el.formDueDay.value = editLoan.dueDay;
       el.formStartDate.value = editLoan.startDate;
       el.formPaidInstallments.value = editLoan.paidInstallments || 0;
@@ -1423,6 +1429,10 @@
       el.loanEditId.value = '';
       if (el.formBorrowerName) el.formBorrowerName.value = '';
       if (el.formBorrowerPhone) el.formBorrowerPhone.value = '';
+      if (el.formCustomEmi) {
+        el.formCustomEmi.value = '';
+        el.formCustomEmi.dataset.manual = 'false';
+      }
       el.formStartDate.value = new Date().toISOString().split('T')[0];
       el.formDueDay.value = '5';
       el.formPaidInstallments.value = '0';
@@ -1435,15 +1445,26 @@
     el.loanModal.classList.add('hidden');
   }
 
-  function updateFormEmiPreview() {
+  function updateFormEmiPreview(forceRecalc = false) {
     const principal = parseFloat(el.formPrincipal.value) || 0;
     const rate = parseFloat(el.formInterestRate.value) || 0;
     const tenure = parseInt(el.formTenureMonths.value, 10) || 0;
 
-    const emi = calculateEMI(principal, rate, tenure);
-    const total = emi * tenure;
+    const calculatedEmi = calculateEMI(principal, rate, tenure);
 
-    if (el.formEmiPreview) el.formEmiPreview.textContent = formatINR(emi);
+    if (el.formCustomEmi) {
+      if (forceRecalc || el.formCustomEmi.dataset.manual !== 'true' || !el.formCustomEmi.value) {
+        if (calculatedEmi > 0) {
+          el.formCustomEmi.value = calculatedEmi;
+        }
+      }
+    }
+
+    const manualVal = el.formCustomEmi ? parseFloat(el.formCustomEmi.value) : 0;
+    const effectiveEmi = manualVal > 0 ? manualVal : calculatedEmi;
+    const total = effectiveEmi * tenure;
+
+    if (el.formEmiPreview) el.formEmiPreview.textContent = formatINR(effectiveEmi);
     if (el.formTotalPayablePreview) el.formTotalPayablePreview.textContent = formatINR(total);
   }
 
@@ -1452,19 +1473,25 @@
 
     const editId = el.loanEditId.value;
     const name = el.formLoanName.value.trim();
-    const borrowerName = el.formBorrowerName ? el.formBorrowerName.value.trim() : 'Self';
-    const borrowerPhone = el.formBorrowerPhone ? el.formBorrowerPhone.value.trim() : '';
-    const category = el.formCategory.value;
-    const bank = el.formBankName.value.trim();
-    const accountNo = el.formLoanNumber.value.trim();
-    const principal = parseFloat(el.formPrincipal.value) || 0;
+    const borrowerName = (el.formBorrowerName && el.formBorrowerName.value.trim()) || 'Self';
+    const borrowerPhone = (el.formBorrowerPhone && el.formBorrowerPhone.value.trim()) || '';
+    const category = el.formCategory.value || 'Other';
+    const bank = (el.formBankName && el.formBankName.value.trim()) || 'Personal / Lender';
+    const accountNo = (el.formLoanNumber && el.formLoanNumber.value.trim()) || '';
+    const rawPrincipal = parseFloat(el.formPrincipal.value) || 0;
     const interestRate = parseFloat(el.formInterestRate.value) || 0;
-    const tenureMonths = parseInt(el.formTenureMonths.value, 10) || 1;
-    const dueDay = parseInt(el.formDueDay.value, 10) || 5;
-    const startDate = el.formStartDate.value;
+    const tenureMonths = Math.max(1, parseInt(el.formTenureMonths.value, 10) || 1);
+    const manualEmi = parseFloat(el.formCustomEmi ? el.formCustomEmi.value : 0) || 0;
+
+    // Use manual EMI if provided, otherwise formula calculation
+    const emi = manualEmi > 0 ? Math.round(manualEmi) : calculateEMI(rawPrincipal, interestRate, tenureMonths);
+    // If principal was left blank or 0, back-calculate principal from EMI * tenure
+    const principal = rawPrincipal > 0 ? rawPrincipal : (emi * tenureMonths);
+
+    const dueDay = Math.min(31, Math.max(1, parseInt(el.formDueDay.value, 10) || 5));
+    const startDate = (el.formStartDate && el.formStartDate.value) || new Date().toISOString().split('T')[0];
     const paidInstallments = parseInt(el.formPaidInstallments.value, 10) || 0;
-    const notes = el.formNotes.value.trim();
-    const emi = calculateEMI(principal, interestRate, tenureMonths);
+    const notes = (el.formNotes && el.formNotes.value.trim()) || '';
 
     if (editId) {
       // Edit existing
@@ -1487,7 +1514,7 @@
       };
       loans.push(newLoan);
       playReminderChime();
-      showToast(`Added new EMI: ${name} (${borrowerName})`, '🎉');
+      showToast(`Added new EMI: ${name}`, '🎉');
     }
 
     saveLoans();
@@ -1612,9 +1639,24 @@
     ['formPrincipal', 'formInterestRate', 'formTenureMonths'].forEach((id) => {
       const input = document.getElementById(id);
       if (input) {
-        input.addEventListener('input', updateFormEmiPreview);
+        input.addEventListener('input', () => updateFormEmiPreview(false));
       }
     });
+
+    if (el.formCustomEmi) {
+      el.formCustomEmi.addEventListener('input', () => {
+        el.formCustomEmi.dataset.manual = 'true';
+        updateFormEmiPreview(false);
+      });
+    }
+
+    if (el.recalcEmiBtn) {
+      el.recalcEmiBtn.addEventListener('click', () => {
+        if (el.formCustomEmi) el.formCustomEmi.dataset.manual = 'false';
+        updateFormEmiPreview(true);
+        showToast('Recalculated EMI from principal & interest rate!', '⚡');
+      });
+    }
 
     // Amortization Modal Close
     if (el.closeAmortModalBtn) el.closeAmortModalBtn.addEventListener('click', () => el.amortizationModal.classList.add('hidden'));
@@ -1986,21 +2028,83 @@
   }
 
   /* ==========================================================================
-     Service Worker Registration for PWA & Background Reminders
+     Service Worker Registration & 100% Offline / PWA Support
      ========================================================================== */
-  function registerServiceWorker() {
+  let deferredInstallPrompt = null;
+
+  function setupOfflineAndPWA() {
+    // 1. Service Worker registration
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker
           .register('sw.js')
           .then((reg) => {
             console.log('LoanPulse Service Worker registered successfully:', reg.scope);
+            if (reg.update) reg.update();
           })
           .catch((err) => {
-            console.warn('Service Worker registration skipped (likely file:// protocol):', err);
+            console.warn('Service Worker registration skipped:', err);
           });
       });
     }
+
+    // 2. Online / Offline network status listeners
+    const badge = document.getElementById('offlineIndicatorBadge');
+    const badgeText = document.getElementById('offlineIndicatorText');
+
+    function updateNetworkStatus(isOnline) {
+      if (!badge) return;
+      if (isOnline) {
+        badge.classList.remove('is-offline');
+        if (badgeText) badgeText.textContent = 'Offline Ready';
+        badge.title = 'Online & Cached: All data is saved locally on device and works 100% offline.';
+      } else {
+        badge.classList.add('is-offline');
+        if (badgeText) badgeText.textContent = 'Offline Active';
+        badge.title = 'Offline Mode: Zero-Knowledge AES-256 Vault active. Tracking works 100% without internet.';
+        showToast('⚡ Offline Mode: Your encrypted vault & all loan features are working 100% locally on your device.', '📶');
+      }
+    }
+
+    window.addEventListener('online', () => {
+      updateNetworkStatus(true);
+      showToast('🟢 Online: Network reconnected.', '🌐');
+    });
+
+    window.addEventListener('offline', () => {
+      updateNetworkStatus(false);
+    });
+
+    if (navigator.onLine === false) {
+      updateNetworkStatus(false);
+    }
+
+    // 3. PWA Add to Home Screen install prompt
+    const installBtn = document.getElementById('installAppBtn');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      if (installBtn) {
+        installBtn.classList.remove('hidden');
+        installBtn.onclick = async () => {
+          if (deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            const { outcome } = await deferredInstallPrompt.userChoice;
+            if (outcome === 'accepted') {
+              installBtn.classList.add('hidden');
+              showToast('📲 LoanPulse installed to home screen! Works 100% offline.', '🎉');
+            }
+            deferredInstallPrompt = null;
+          }
+        };
+      }
+    });
+
+    window.addEventListener('appinstalled', () => {
+      if (installBtn) installBtn.classList.add('hidden');
+      deferredInstallPrompt = null;
+      showToast('🎉 LoanPulse installed as standalone app!', '📱');
+    });
   }
 
   /* ==========================================================================
@@ -2010,7 +2114,7 @@
     await loadLoans();
     setupEventListeners();
     updatePushNotificationStatus();
-    registerServiceWorker();
+    setupOfflineAndPWA();
     renderAll();
     updateCalculator();
   }

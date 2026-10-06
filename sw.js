@@ -1,10 +1,16 @@
 // Service Worker for LoanPulse — Smart EMI Tracker & Reminders
-const CACHE_NAME = 'loanpulse-v14';
+const CACHE_NAME = 'loanpulse-v16';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
+  './style.css?v=14',
+  './style.css?v=15',
+  './style.css?v=16',
   './app.js',
+  './app.js?v=14',
+  './app.js?v=15',
+  './app.js?v=16',
   './manifest.json',
   './assets/hero.jpg',
   './assets/app-icon.jpg'
@@ -14,7 +20,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
-        console.warn('Caching partial assets:', err);
+        console.warn('LoanPulse caching partial assets:', err);
       });
     })
   );
@@ -32,10 +38,33 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// 100% Offline Cache-First Strategy with Dynamic Fallback & ignoreSearch
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request).catch(() => caches.match('./index.html'));
+    caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // If completely offline and request is navigation, serve index.html
+          if (event.request.mode === 'navigate') {
+            return caches.match('./index.html', { ignoreSearch: true });
+          }
+          // Return cached version without search params
+          return caches.match(event.request, { ignoreSearch: true });
+        });
     })
   );
 });
