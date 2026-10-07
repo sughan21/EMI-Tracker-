@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=23">
+  <link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
   <div class="app-wrapper">
@@ -573,7 +573,17 @@
         <div class="schedule-view">
           <div class="section-header">
             <h3>📅 Upcoming 12-Month Payment Schedule</h3>
-            <p>Visual map of all upcoming monthly installments across all your active loans.</p>
+            <p>Visual map of all upcoming monthly installments across all your active loans separated by borrower.</p>
+          </div>
+
+          <!-- Schedule Borrower Filter & Quick Share Bar -->
+          <div class="schedule-controls-bar">
+            <div class="schedule-filter-scroll" id="scheduleUserFilterBar">
+              <!-- Rendered via JS: All Users & individual borrower pills -->
+            </div>
+            <button class="btn btn-accent btn-sm schedule-share-current-btn" id="shareCurrentMonthEmiBtn" title="Share this month's total EMI and borrower breakdown via WhatsApp">
+              <span>💬 Share Current Month EMIs</span>
+            </button>
           </div>
 
           <div id="scheduleTimeline" class="timeline-container">
@@ -985,6 +995,6 @@
     <div class="toast-message" id="toastMessage">Alert notification</div>
   </div>
 
-  <script src="app.js?v=23"></script>
+  <script src="app.js?v=25"></script>
 </body>
 </html>

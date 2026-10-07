@@ -1,12 +1,12 @@
 // Service Worker for LoanPulse — Smart EMI Tracker & Reminders
-const CACHE_NAME = 'loanpulse-v23';
+const CACHE_NAME = 'loanpulse-v25';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
-  './style.css?v=23',
+  './style.css?v=25',
   './app.js',
-  './app.js?v=23',
+  './app.js?v=25',
   './manifest.json',
   './assets/hero.jpg',
   './assets/app-icon.jpg'

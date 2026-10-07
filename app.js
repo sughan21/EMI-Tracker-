@@ -73,6 +73,7 @@
   let currentFilter = 'all';
   let currentSort = 'due-asc';
   let searchQuery = '';
+  let scheduleSelectedBorrower = 'all';
 
   // DOM Elements Cache
   const el = {
@@ -166,6 +167,8 @@
 
     // Schedule Tab
     scheduleTimeline: document.getElementById('scheduleTimeline'),
+    scheduleUserFilterBar: document.getElementById('scheduleUserFilterBar'),
+    shareCurrentMonthEmiBtn: document.getElementById('shareCurrentMonthEmiBtn'),
 
     // Modals
     loanModal: document.getElementById('loanModal'),
@@ -235,6 +238,149 @@
     lockAppNowBtn: document.getElementById('lockAppNowBtn'),
     exportEncryptedBackupBtn: document.getElementById('exportEncryptedBackupBtn')
   };
+
+  /* ==========================================================================
+     Modal Management, Body Scroll Lock & Step-by-Step Back Navigation
+     ========================================================================== */
+  const activeModals = new Set();
+  const modalStack = [];
+  let savedScrollY = 0;
+  let suppressNextPopState = false;
+
+  function lockBodyScroll() {
+    if (activeModals.size === 1) {
+      savedScrollY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      document.body.style.setProperty('--scroll-top', `-${savedScrollY}px`);
+      document.body.classList.add('modal-open');
+    }
+  }
+
+  function unlockBodyScroll() {
+    if (activeModals.size === 0) {
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('--scroll-top');
+      window.scrollTo(0, savedScrollY);
+    }
+  }
+
+  function openModal(modalEl, options = {}) {
+    if (!modalEl) return;
+    modalEl.classList.remove('hidden');
+    activeModals.add(modalEl);
+    if (!modalStack.includes(modalEl)) {
+      modalStack.push(modalEl);
+    }
+    lockBodyScroll();
+
+    if (!options.skipHistory) {
+      history.pushState({ type: 'modal', modalId: modalEl.id }, '');
+    }
+  }
+
+  function closeModal(modalEl, options = {}) {
+    if (!modalEl) return;
+    const idx = modalStack.lastIndexOf(modalEl);
+    if (idx !== -1) {
+      modalStack.splice(idx, 1);
+    }
+    activeModals.delete(modalEl);
+    modalEl.classList.add('hidden');
+    unlockBodyScroll();
+
+    if (!options.fromPopState && history.state && history.state.type === 'modal' && history.state.modalId === modalEl.id) {
+      suppressNextPopState = true;
+      history.back();
+    }
+  }
+
+  function clearBorrowerFilter(options = {}) {
+    if (el.loanSearchInput) el.loanSearchInput.value = '';
+    searchQuery = '';
+    renderLoansGrid();
+    if (el.userLiveSummaryBanner) el.userLiveSummaryBanner.classList.add('hidden');
+
+    if (!options.fromPopState && history.state && history.state.type === 'filter') {
+      suppressNextPopState = true;
+      history.back();
+    }
+  }
+
+  function switchTab(targetId, pushHistory = true) {
+    document.querySelectorAll('.tab-link').forEach((t) => {
+      t.classList.toggle('active', t.dataset.tab === targetId);
+    });
+    document.querySelectorAll('.mobile-nav-item[data-tab]').forEach((m) => {
+      m.classList.toggle('active', m.dataset.tab === targetId);
+    });
+    el.tabPanels.forEach((p) => {
+      p.classList.toggle('active', p.id === targetId);
+    });
+
+    if (targetId === 'tab-calculator' && typeof updateCalculator === 'function') {
+      updateCalculator();
+    } else if (targetId === 'tab-schedule' && typeof renderTimeline === 'function') {
+      renderTimeline();
+    }
+
+    if (pushHistory && targetId !== 'tab-loans') {
+      history.pushState({ type: 'tab', tabId: targetId }, '');
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Initialize base history state if not already set
+  try {
+    if (!history.state) {
+      history.replaceState({ type: 'root', tabId: 'tab-loans' }, '');
+    }
+  } catch (e) {
+    console.warn('History API not supported:', e);
+  }
+
+  // Step-by-Step Back Navigation via Hardware / Browser Back button
+  window.addEventListener('popstate', (e) => {
+    if (suppressNextPopState) {
+      suppressNextPopState = false;
+      return;
+    }
+
+    // Step 1: If any modal is active, close topmost modal
+    if (modalStack.length > 0) {
+      const topModal = modalStack[modalStack.length - 1];
+      closeModal(topModal, { fromPopState: true });
+      return;
+    }
+
+    // Step 2: If borrower filter / search is active, clear it and return to all loans
+    if (searchQuery && searchQuery.trim() !== '') {
+      clearBorrowerFilter({ fromPopState: true });
+      return;
+    }
+
+    // Step 3: If on any sub-tab (Calculator, Schedule, etc.), return to main Loans tab
+    const state = e.state;
+    if (state && state.type === 'tab' && state.tabId) {
+      switchTab(state.tabId, false);
+    } else {
+      const activePanel = document.querySelector('.tab-panel.active');
+      if (activePanel && activePanel.id !== 'tab-loans') {
+        switchTab('tab-loans', false);
+      }
+    }
+  });
+
+  // Touchmove preventDefault on non-scrollable parts of modals to eliminate mobile scroll bleed
+  document.addEventListener('touchmove', (e) => {
+    if (activeModals.size > 0) {
+      const scrollable = e.target.closest(
+        '.user-portfolio-scroll, .modal-body-scroll, .modal-dialog, .schedule-table-wrap, .amort-body'
+      );
+      if (!scrollable) {
+        e.preventDefault();
+      }
+    }
+  }, { passive: false });
 
   /* ==========================================================================
      Financial Calculations
@@ -675,7 +821,7 @@
     const isSecure = window.isSecureContext || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (!('Notification' in window) || !isSecure) {
       showToast('Push requires HTTPS. On mobile Wi-Fi, use WhatsApp & Calendar alerts below!', '💡');
-      if (el.mobileGuideModal) el.mobileGuideModal.classList.remove('hidden');
+      openModal(el.mobileGuideModal);
       return;
     }
 
@@ -903,12 +1049,20 @@
   function showLockScreen() {
     enteredPin = '';
     updatePinDots();
-    if (el.appLockScreenModal) el.appLockScreenModal.classList.remove('hidden');
+    if (el.appLockScreenModal) {
+      el.appLockScreenModal.classList.remove('hidden');
+      activeModals.add(el.appLockScreenModal);
+      lockBodyScroll();
+    }
     if (el.pinErrorMsg) el.pinErrorMsg.classList.add('hidden');
   }
 
   function hideLockScreen() {
-    if (el.appLockScreenModal) el.appLockScreenModal.classList.add('hidden');
+    if (el.appLockScreenModal) {
+      el.appLockScreenModal.classList.add('hidden');
+      activeModals.delete(el.appLockScreenModal);
+      unlockBodyScroll();
+    }
   }
 
   function updatePinDots() {
@@ -1384,59 +1538,281 @@
     return card;
   }
 
+  /**
+   * Shares a complete month's EMI schedule separated by borrower via WhatsApp
+   */
+  function shareMonthEmiSchedule(monthLabel, monthTotal, groups) {
+    if (!groups || groups.length === 0) {
+      showToast('No active EMI payments to share for this month.', '⚠️');
+      return;
+    }
+
+    const messageLines = [
+      `📅 *LOANPULSE — PAYMENT SCHEDULE: ${monthLabel.toUpperCase()}*`,
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `💰 *TOTAL MONTHLY OUTFLOW:* ${formatINR(monthTotal)}`,
+      ``
+    ];
+
+    groups.forEach((g) => {
+      messageLines.push(`👤 *${g.displayName}* (Total: ${formatINR(g.subtotal)})`);
+      g.loans.forEach((l) => {
+        messageLines.push(`• ${l.name} (${l.bank}) — ${formatINR(l.emi)} [Due: ${l.dueDay}th]`);
+      });
+      messageLines.push(``);
+    });
+
+    messageLines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    messageLines.push(`⚠️ Please verify sufficient account balance before due dates.`);
+    messageLines.push(`📲 Shared via LoanPulse EMI Tracker`);
+
+    const fullText = messageLines.join('\n');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(fullText).catch(() => {});
+    }
+
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(fullText)}`;
+    const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.location.href = waUrl;
+    } else {
+      window.open(waUrl, '_blank');
+    }
+    showToast(`Sharing ${monthLabel} total EMI breakdown on WhatsApp! 💬`, '📲');
+  }
+
+  /**
+   * Shares a specific borrower's monthly EMI notice via WhatsApp
+   */
+  function shareUserMonthEmiSchedule(borrowerName, borrowerPhone, monthLabel, subtotal, userLoans) {
+    const waPhone = formatPhoneForWhatsApp(borrowerPhone);
+    const messageLines = [
+      `🔔 *LOANPULSE — ${monthLabel.toUpperCase()} EMI NOTICE*`,
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `👤 *Hello ${borrowerName},*`,
+      `Here is your monthly installment summary for *${monthLabel}*:`,
+      ``
+    ];
+
+    userLoans.forEach((l) => {
+      messageLines.push(`• *${l.name}* (${l.bank})`);
+      messageLines.push(`  Amount: ${formatINR(l.emi)} | Due Date: ${l.dueDay}th of this month`);
+      if (l.accountNo) messageLines.push(`  A/C ID: ${l.accountNo}`);
+      messageLines.push(``);
+    });
+
+    messageLines.push(`💰 *TOTAL PAYABLE THIS MONTH:* ${formatINR(subtotal)}`);
+    messageLines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    messageLines.push(`⚠️ Please ensure funds are ready in your account before due dates to avoid penalties.`);
+    messageLines.push(`📲 LoanPulse Auto Reminders`);
+
+    const fullText = messageLines.join('\n');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(fullText).catch(() => {});
+    }
+
+    const waUrl = waPhone
+      ? `https://wa.me/${waPhone}?text=${encodeURIComponent(fullText)}`
+      : `https://wa.me/?text=${encodeURIComponent(fullText)}`;
+
+    const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.location.href = waUrl;
+    } else {
+      window.open(waUrl, '_blank');
+    }
+    showToast(`Opening WhatsApp for ${borrowerName}... 💬`, '📲');
+  }
+
   function renderTimeline() {
     if (!el.scheduleTimeline) return;
     el.scheduleTimeline.innerHTML = '';
 
+    // 1. Build and render Borrower Filter Bar (scheduleUserFilterBar)
+    if (el.scheduleUserFilterBar) {
+      el.scheduleUserFilterBar.innerHTML = '';
+      const borrowerCountMap = new Map();
+      loans.forEach((l) => {
+        const b = (l.borrowerName && l.borrowerName.trim()) || 'Self';
+        borrowerCountMap.set(b, (borrowerCountMap.get(b) || 0) + 1);
+      });
+
+      const allPill = document.createElement('button');
+      allPill.type = 'button';
+      allPill.className = `schedule-filter-pill ${scheduleSelectedBorrower === 'all' ? 'active' : ''}`;
+      allPill.textContent = `All Users (${loans.length})`;
+      allPill.addEventListener('click', () => {
+        scheduleSelectedBorrower = 'all';
+        renderTimeline();
+      });
+      el.scheduleUserFilterBar.appendChild(allPill);
+
+      borrowerCountMap.forEach((count, bName) => {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = `schedule-filter-pill ${scheduleSelectedBorrower.toLowerCase() === bName.toLowerCase() ? 'active' : ''}`;
+        pill.textContent = `👤 ${bName} (${count})`;
+        pill.addEventListener('click', () => {
+          scheduleSelectedBorrower = bName;
+          renderTimeline();
+        });
+        el.scheduleUserFilterBar.appendChild(pill);
+      });
+    }
+
+    // 2. Iterate through 12 months ahead
     const today = new Date();
     const monthsAhead = 12;
+    let anyMonthRendered = false;
+    let currentMonthData = null;
 
     for (let m = 0; m < monthsAhead; m++) {
       const monthDate = new Date(today.getFullYear(), today.getMonth() + m, 1);
       const monthLabel = monthDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
       let monthTotal = 0;
-      const monthItems = [];
+
+      // Group active loans by borrower
+      const borrowerMap = new Map();
 
       loans.forEach((loan) => {
-        // Check if loan is still active in this month
         const installmentsRemaining = loan.tenureMonths - loan.paidInstallments;
         if (m < installmentsRemaining) {
+          const rawName = (loan.borrowerName && loan.borrowerName.trim()) || 'Self';
+
+          // Apply user filter if selected
+          if (scheduleSelectedBorrower !== 'all' && rawName.toLowerCase() !== scheduleSelectedBorrower.toLowerCase()) {
+            return;
+          }
+
           monthTotal += loan.emi;
-          monthItems.push({
-            name: loan.name,
-            bank: loan.bank,
-            category: loan.category,
-            dueDay: loan.dueDay,
-            emi: loan.emi
-          });
+          const key = rawName.toLowerCase();
+          if (!borrowerMap.has(key)) {
+            borrowerMap.set(key, {
+              displayName: rawName,
+              phone: loan.borrowerPhone ? loan.borrowerPhone.trim() : '',
+              subtotal: 0,
+              loans: []
+            });
+          }
+          const entry = borrowerMap.get(key);
+          if (!entry.phone && loan.borrowerPhone) {
+            entry.phone = loan.borrowerPhone.trim();
+          }
+          entry.subtotal += loan.emi;
+          entry.loans.push(loan);
         }
       });
 
-      if (monthItems.length === 0) continue;
+      if (borrowerMap.size === 0) continue;
+      anyMonthRendered = true;
+
+      const groups = Array.from(borrowerMap.values());
+      if (m === 0) {
+        currentMonthData = { monthLabel, monthTotal, groups };
+      }
 
       const card = document.createElement('div');
       card.className = 'timeline-month-card';
       card.innerHTML = `
         <div class="timeline-month-header">
-          <span class="timeline-month-title">📅 ${monthLabel}</span>
-          <span class="timeline-month-total">Total Outflow: <strong>${formatINR(monthTotal)}</strong></span>
+          <div class="timeline-month-title-wrap">
+            <span class="timeline-month-title">📅 ${monthLabel}</span>
+            <span class="timeline-month-total">Total Outflow: <strong>${formatINR(monthTotal)}</strong></span>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm btn-share-month" data-action="share-month" title="Share ${monthLabel} total EMI breakdown on WhatsApp">
+            💬 Share Month
+          </button>
         </div>
-        <div class="timeline-items-list">
-          ${monthItems.map(item => `
-            <div class="timeline-item">
-              <div>
-                <span>${getCategoryIcon(item.category)} <strong>${item.name}</strong> (${item.bank})</span>
+        <div class="timeline-users-container">
+          ${groups.map(g => `
+            <div class="timeline-user-group">
+              <div class="timeline-user-header">
+                <div class="timeline-user-info">
+                  <span class="timeline-user-avatar">👤</span>
+                  <div>
+                    <strong class="timeline-user-name">${g.displayName}</strong>
+                    <span class="timeline-user-badge">${g.loans.length} EMI${g.loans.length > 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+                <div class="timeline-user-actions">
+                  <div class="timeline-user-subtotal-block">
+                    <span class="subtotal-label">User Total:</span>
+                    <strong class="timeline-user-subtotal">${formatINR(g.subtotal)}</strong>
+                  </div>
+                  <button type="button" class="btn-share-user-mini" data-action="share-user" data-user="${g.displayName}" title="Share ${g.displayName}'s EMIs for ${monthLabel}">
+                    💬 Share
+                  </button>
+                </div>
               </div>
-              <div>
-                <span class="timeline-item-due">Due: ${item.dueDay}th</span>
-                &nbsp;•&nbsp;
-                <strong>${formatINR(item.emi)}</strong>
+              <div class="timeline-items-list">
+                ${g.loans.map(item => `
+                  <div class="timeline-item">
+                    <div class="timeline-item-info">
+                      <span class="timeline-item-icon">${getCategoryIcon(item.category)}</span>
+                      <div>
+                        <strong>${item.name}</strong>
+                        <small>${item.bank}${item.accountNo ? ' • ' + item.accountNo : ''}</small>
+                      </div>
+                    </div>
+                    <div class="timeline-item-amount-box">
+                      <span class="timeline-item-due">Due: ${item.dueDay}th</span>
+                      <strong class="timeline-item-emi">${formatINR(item.emi)}</strong>
+                    </div>
+                  </div>
+                `).join('')}
               </div>
             </div>
           `).join('')}
         </div>
       `;
+
+      // Event listener for Share Month button
+      const shareMonthBtn = card.querySelector('[data-action="share-month"]');
+      if (shareMonthBtn) {
+        shareMonthBtn.addEventListener('click', () => {
+          shareMonthEmiSchedule(monthLabel, monthTotal, groups);
+        });
+      }
+
+      // Event listeners for individual User Share buttons
+      card.querySelectorAll('[data-action="share-user"]').forEach((userBtn) => {
+        const uName = userBtn.getAttribute('data-user');
+        const userGroup = groups.find(g => g.displayName === uName);
+        if (userGroup) {
+          userBtn.addEventListener('click', () => {
+            shareUserMonthEmiSchedule(userGroup.displayName, userGroup.phone, monthLabel, userGroup.subtotal, userGroup.loans);
+          });
+        }
+      });
+
       el.scheduleTimeline.appendChild(card);
+    }
+
+    if (!anyMonthRendered) {
+      el.scheduleTimeline.innerHTML = `
+        <div class="empty-state" style="padding: 2.5rem 1rem; text-align: center;">
+          <div class="empty-icon">📅</div>
+          <h3 style="color:#fff; margin-bottom:0.5rem;">No Installments Scheduled</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">
+            ${scheduleSelectedBorrower !== 'all' 
+              ? `No upcoming installments found for "${scheduleSelectedBorrower}".` 
+              : 'Add loans to see your 12-month payment timeline separated by borrower.'}
+          </p>
+        </div>
+      `;
+    }
+
+    // Attach listener for Quick Share Current Month button in controls bar
+    if (el.shareCurrentMonthEmiBtn) {
+      el.shareCurrentMonthEmiBtn.onclick = () => {
+        if (currentMonthData) {
+          shareMonthEmiSchedule(currentMonthData.monthLabel, currentMonthData.monthTotal, currentMonthData.groups);
+        } else {
+          showToast('No active EMI payments due in current month.', 'ℹ️');
+        }
+      };
     }
   }
 
@@ -1556,11 +1932,11 @@
       el.formPaidInstallments.value = '0';
     }
     updateFormEmiPreview();
-    el.loanModal.classList.remove('hidden');
+    openModal(el.loanModal);
   }
 
   function closeLoanModal() {
-    el.loanModal.classList.add('hidden');
+    closeModal(el.loanModal);
   }
 
   function updateFormEmiPreview(forceRecalc = false) {
@@ -1676,7 +2052,7 @@
       `).join('');
     }
 
-    el.amortizationModal.classList.remove('hidden');
+    openModal(el.amortizationModal);
   }
 
   /* ==========================================================================
@@ -1685,11 +2061,11 @@
   function openUserPortfolioModal() {
     renderUserPortfolios();
     if (el.userPortfolioSearchInput) el.userPortfolioSearchInput.value = '';
-    if (el.userPortfolioModal) el.userPortfolioModal.classList.remove('hidden');
+    openModal(el.userPortfolioModal);
   }
 
   function closeUserPortfolioModal() {
-    if (el.userPortfolioModal) el.userPortfolioModal.classList.add('hidden');
+    closeModal(el.userPortfolioModal);
   }
 
   function renderUserPortfolios(filterText = '') {
@@ -1882,10 +2258,11 @@
 
   function filterDashboardByBorrower(borrowerName) {
     closeUserPortfolioModal();
-    switchTab('tab-loans');
+    switchTab('tab-loans', false);
     if (el.loanSearchInput) {
       el.loanSearchInput.value = borrowerName;
       searchQuery = borrowerName;
+      history.pushState({ type: 'filter', query: borrowerName }, '');
       renderLoansGrid();
       updateUserLiveSummaryBanner();
       const controlsEl = document.querySelector('.table-controls');
@@ -1941,10 +2318,7 @@
 
     if (el.ulsbClearBtn) {
       el.ulsbClearBtn.onclick = () => {
-        if (el.loanSearchInput) el.loanSearchInput.value = '';
-        searchQuery = '';
-        renderLoansGrid();
-        el.userLiveSummaryBanner.classList.add('hidden');
+        clearBorrowerFilter();
       };
     }
 
@@ -1956,31 +2330,12 @@
      ========================================================================== */
   function setupEventListeners() {
     // Nav Tab Switching (Top Tabs + Mobile Bottom Nav)
-    const switchTab = (targetId) => {
-      document.querySelectorAll('.tab-link').forEach((t) => {
-        t.classList.toggle('active', t.dataset.tab === targetId);
-      });
-      document.querySelectorAll('.mobile-nav-item[data-tab]').forEach((m) => {
-        m.classList.toggle('active', m.dataset.tab === targetId);
-      });
-      el.tabPanels.forEach((p) => {
-        p.classList.toggle('active', p.id === targetId);
-      });
-
-      if (targetId === 'tab-calculator') {
-        updateCalculator();
-      } else if (targetId === 'tab-schedule') {
-        renderTimeline();
-      }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
     el.tabLinks.forEach((tab) => {
-      tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+      tab.addEventListener('click', () => switchTab(tab.dataset.tab, true));
     });
 
     document.querySelectorAll('.mobile-nav-item[data-tab]').forEach((navItem) => {
-      navItem.addEventListener('click', () => switchTab(navItem.dataset.tab));
+      navItem.addEventListener('click', () => switchTab(navItem.dataset.tab, true));
     });
 
     const mobileFab = document.getElementById('mobileFabAddBtn');
@@ -2018,7 +2373,7 @@
 
     const mobCardGuide = document.getElementById('mobileCardGuideBtn');
     if (mobCardGuide) mobCardGuide.addEventListener('click', () => {
-      if (el.mobileGuideModal) el.mobileGuideModal.classList.remove('hidden');
+      openModal(el.mobileGuideModal);
     });
 
     if (el.closeLoanModalBtn) el.closeLoanModalBtn.addEventListener('click', closeLoanModal);
@@ -2049,32 +2404,31 @@
     }
 
     // Amortization Modal Close
-    if (el.closeAmortModalBtn) el.closeAmortModalBtn.addEventListener('click', () => el.amortizationModal.classList.add('hidden'));
-    if (el.closeAmortBtn) el.closeAmortBtn.addEventListener('click', () => el.amortizationModal.classList.add('hidden'));
+    if (el.closeAmortModalBtn) el.closeAmortModalBtn.addEventListener('click', () => closeModal(el.amortizationModal));
+    if (el.closeAmortBtn) el.closeAmortBtn.addEventListener('click', () => closeModal(el.amortizationModal));
 
     // Mobile Phone Guide Modal
-    if (el.openMobileGuideBtn) el.openMobileGuideBtn.addEventListener('click', () => el.mobileGuideModal.classList.remove('hidden'));
-    if (el.heroAutoRemindBtn) el.heroAutoRemindBtn.addEventListener('click', () => el.mobileGuideModal.classList.remove('hidden'));
-    if (el.footerGuide) el.footerGuide.addEventListener('click', () => el.mobileGuideModal.classList.remove('hidden'));
-    if (el.closeGuideModalBtn) el.closeGuideModalBtn.addEventListener('click', () => el.mobileGuideModal.classList.add('hidden'));
-    if (el.guideUnderstoodBtn) el.guideUnderstoodBtn.addEventListener('click', () => el.mobileGuideModal.classList.add('hidden'));
+    if (el.openMobileGuideBtn) el.openMobileGuideBtn.addEventListener('click', () => openModal(el.mobileGuideModal));
+    if (el.heroAutoRemindBtn) el.heroAutoRemindBtn.addEventListener('click', () => openModal(el.mobileGuideModal));
+    if (el.footerGuide) el.footerGuide.addEventListener('click', () => openModal(el.mobileGuideModal));
+    if (el.closeGuideModalBtn) el.closeGuideModalBtn.addEventListener('click', () => closeModal(el.mobileGuideModal));
+    if (el.guideUnderstoodBtn) el.guideUnderstoodBtn.addEventListener('click', () => closeModal(el.mobileGuideModal));
 
     // Backdrop tap-outside-to-dismiss for all modals (standard mobile UX)
-    [el.loanModal, el.amortizationModal, el.mobileGuideModal].forEach((modal) => {
+    [el.loanModal, el.amortizationModal, el.mobileGuideModal, el.vaultSettingsModal, el.userPortfolioModal].forEach((modal) => {
       if (!modal) return;
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
-          modal.classList.add('hidden');
+          closeModal(modal);
         }
       });
     });
 
     // Escape key dismiss
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        if (el.loanModal) el.loanModal.classList.add('hidden');
-        if (el.amortizationModal) el.amortizationModal.classList.add('hidden');
-        if (el.mobileGuideModal) el.mobileGuideModal.classList.add('hidden');
+      if (e.key === 'Escape' && modalStack.length > 0) {
+        const topModal = modalStack[modalStack.length - 1];
+        closeModal(topModal);
       }
     });
 
@@ -2215,15 +2569,15 @@
     if (el.vaultSecurityBtn) {
       el.vaultSecurityBtn.addEventListener('click', () => {
         updateVaultStatusUI();
-        if (el.vaultSettingsModal) el.vaultSettingsModal.classList.remove('hidden');
+        openModal(el.vaultSettingsModal);
       });
     }
 
     if (el.closeVaultSettingsBtn) {
-      el.closeVaultSettingsBtn.addEventListener('click', () => el.vaultSettingsModal.classList.add('hidden'));
+      el.closeVaultSettingsBtn.addEventListener('click', () => closeModal(el.vaultSettingsModal));
     }
     if (el.closeVaultModalBtn) {
-      el.closeVaultModalBtn.addEventListener('click', () => el.vaultSettingsModal.classList.add('hidden'));
+      el.closeVaultModalBtn.addEventListener('click', () => closeModal(el.vaultSettingsModal));
     }
 
     // Set / Update PIN
@@ -2279,7 +2633,7 @@
           showToast('Please set a 4-digit PIN first to lock your vault.', 'ℹ️');
           return;
         }
-        if (el.vaultSettingsModal) el.vaultSettingsModal.classList.add('hidden');
+        closeModal(el.vaultSettingsModal);
         isVaultUnlocked = false;
         showLockScreen();
         showToast('Vault locked!', '🔒');
