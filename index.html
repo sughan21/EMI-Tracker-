@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
   <div class="app-wrapper">
@@ -253,6 +253,9 @@
             <button class="btn btn-secondary btn-sm" id="seedDemoDataBtn" title="Reset to Sample Demo Loans">
               <span>🔄 Load Samples</span>
             </button>
+            <button class="btn btn-secondary btn-sm" id="clearAllLoansBtn" title="Clear all loans and start fresh">
+              <span>🗑️ Clear All</span>
+            </button>
           </div>
         </div>
 
@@ -289,7 +292,7 @@
                   <label for="calcAmountRange">Loan Amount (Principal)</label>
                   <div class="field-input-box">
                     <span>₹</span>
-                    <input type="number" id="calcAmountNumber" min="10000" max="20000000" step="5000" value="1500000">
+                    <input type="number" id="calcAmountNumber" min="1" max="200000000" step="any" value="1500000">
                   </div>
                 </div>
                 <input type="range" id="calcAmountRange" min="50000" max="10000000" step="25000" value="1500000" class="custom-slider">
@@ -306,7 +309,7 @@
                 <div class="field-label-row">
                   <label for="calcRateRange">Annual Interest Rate (%)</label>
                   <div class="field-input-box">
-                    <input type="number" id="calcRateNumber" min="1" max="36" step="0.1" value="8.75">
+                    <input type="number" id="calcRateNumber" min="0" max="100" step="any" value="8.75">
                     <span>%</span>
                   </div>
                 </div>
@@ -324,7 +327,7 @@
                 <div class="field-label-row">
                   <label for="calcTenureRange">Loan Tenure</label>
                   <div class="field-input-box">
-                    <input type="number" id="calcTenureNumber" min="3" max="360" step="1" value="60">
+                    <input type="number" id="calcTenureNumber" min="1" max="480" step="1" value="60">
                     <select id="calcTenureType" class="mini-select">
                       <option value="months" selected>Months</option>
                       <option value="years">Years</option>
@@ -354,7 +357,7 @@
                 </div>
                 <div id="prepayInputRow" class="prepay-field hidden">
                   <label for="calcPrepayAmount">Extra Monthly Prepayment: ₹</label>
-                  <input type="number" id="calcPrepayAmount" min="500" max="100000" step="500" value="5000">
+                  <input type="number" id="calcPrepayAmount" min="0" max="10000000" step="any" value="5000">
                 </div>
               </div>
 
@@ -621,17 +624,17 @@
         <div class="form-row form-row-financials">
           <div class="form-group flex-1">
             <label for="formPrincipal">Principal Amount (₹) *</label>
-            <input type="number" id="formPrincipal" min="100" step="100" placeholder="e.g. 50000" required>
+            <input type="number" id="formPrincipal" min="1" step="any" placeholder="e.g. 50000" required>
             <small class="form-help">Total loan amount</small>
           </div>
           <div class="form-group flex-1">
             <label for="formInterestRate">Interest Rate (% p.a.)</label>
-            <input type="number" id="formInterestRate" min="0" max="100" step="0.05" placeholder="8.5 (or 0% No-Cost)">
+            <input type="number" id="formInterestRate" min="0" max="100" step="any" placeholder="8.5 (or 0% No-Cost)">
             <small class="form-help">0% for No-Cost EMI</small>
           </div>
           <div class="form-group flex-1">
             <label for="formTenureMonths">Tenure (Months) *</label>
-            <input type="number" id="formTenureMonths" min="1" max="480" placeholder="e.g. 12" required>
+            <input type="number" id="formTenureMonths" min="1" max="480" step="1" placeholder="e.g. 12" required>
             <small class="form-help">Installment months</small>
           </div>
         </div>
@@ -643,7 +646,7 @@
               <label for="formCustomEmi">💵 Monthly EMI (₹)</label>
               <button type="button" id="recalcEmiBtn" class="pill-action-btn" title="Calculate automatically from Principal & Interest">⚡ Auto-Calculate</button>
             </div>
-            <input type="number" id="formCustomEmi" min="1" step="1" placeholder="Auto-calculated (or type exact EMI)">
+            <input type="number" id="formCustomEmi" min="1" step="any" placeholder="Auto-calculated (or type exact EMI)">
             <small class="form-help">Auto-filled, or enter your exact bank deduction</small>
           </div>
           <div class="form-group flex-1">
@@ -920,6 +923,6 @@
     <div class="toast-message" id="toastMessage">Alert notification</div>
   </div>
 
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>

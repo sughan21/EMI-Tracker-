@@ -111,6 +111,7 @@
     loanSortBy: document.getElementById('loanSortBy'),
     exportDataBtn: document.getElementById('exportDataBtn'),
     seedDemoDataBtn: document.getElementById('seedDemoDataBtn'),
+    clearAllLoansBtn: document.getElementById('clearAllLoansBtn'),
     loansGrid: document.getElementById('loansGrid'),
     loansEmptyState: document.getElementById('loansEmptyState'),
     emptyAddBtn: document.getElementById('emptyAddBtn'),
@@ -961,9 +962,9 @@
       if (encryptedDataStr) {
         const encryptedObj = JSON.parse(encryptedDataStr);
         const decryptedJson = await CryptoVault.decrypt(encryptedObj, currentVaultSecret);
-        loans = JSON.parse(decryptedJson).map((loan, idx) => ({
-          borrowerName: loan.borrowerName || (DEFAULT_LOANS[idx] ? DEFAULT_LOANS[idx].borrowerName : 'Self'),
-          borrowerPhone: loan.borrowerPhone || (DEFAULT_LOANS[idx] ? DEFAULT_LOANS[idx].borrowerPhone : ''),
+        loans = JSON.parse(decryptedJson).map((loan) => ({
+          borrowerName: loan.borrowerName || 'Self',
+          borrowerPhone: loan.borrowerPhone || '',
           ...loan
         }));
       } else {
@@ -974,10 +975,11 @@
             loans = JSON.parse(legacyStored);
             localStorage.removeItem(STORAGE_KEY_LOANS);
           } catch (e) {
-            loans = [...DEFAULT_LOANS];
+            loans = [];
           }
         } else {
-          loans = [...DEFAULT_LOANS];
+          // New user opening tracker: start clean and independent
+          loans = [];
         }
         saveLoans();
       }
@@ -988,7 +990,7 @@
         return;
       }
       if (!loans || loans.length === 0) {
-        loans = [...DEFAULT_LOANS];
+        loans = [];
       }
     }
     renderAll();
@@ -1728,6 +1730,22 @@
     };
     if (el.seedDemoDataBtn) el.seedDemoDataBtn.addEventListener('click', handleSeed);
     if (el.emptySeedBtn) el.emptySeedBtn.addEventListener('click', handleSeed);
+
+    // Clear All Loans / Start Fresh
+    if (el.clearAllLoansBtn) {
+      el.clearAllLoansBtn.addEventListener('click', () => {
+        if (!loans || loans.length === 0) {
+          showToast('No loans to clear!', 'ℹ️');
+          return;
+        }
+        if (confirm('Are you sure you want to clear all loans? This will reset your tracker so you can start fresh.')) {
+          loans = [];
+          saveLoans();
+          renderAll();
+          showToast('All loans cleared. Ready for your own loans!', '🗑️');
+        }
+      });
+    }
 
     // Export Data (Blob object URL for full mobile Chrome & Safari support)
     const handleExport = () => {
