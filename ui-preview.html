@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LoanPulse — Borrower UI Design Gallery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0b0f19;
+      color: #f8fafc;
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      padding: 2rem 1.25rem 4rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      text-align: center;
+      max-width: 750px;
+      margin-bottom: 2.5rem;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: #818cf8;
+      padding: 0.35rem 0.95rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-bottom: 0.85rem;
+    }
+    h1 {
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #fff 40%, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p {
+      color: #94a3b8;
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 2rem;
+      max-width: 1300px;
+      width: 100%;
+    }
+    .design-card {
+      background: rgba(18, 24, 38, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    .design-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(6, 182, 212, 0.5);
+      box-shadow: 0 18px 40px rgba(6, 182, 212, 0.15);
+    }
+    .card-img-wrap {
+      background: #05070d;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .card-img-wrap img {
+      width: 100%;
+      height: auto;
+      max-height: 480px;
+      object-fit: contain;
+      border-radius: 12px;
+      display: block;
+    }
+    .card-body {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+    .card-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #06b6d4;
+      margin-bottom: 0.4rem;
+    }
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.65rem;
+      color: #fff;
+    }
+    .card-desc {
+      color: #94a3b8;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      margin-bottom: 1.25rem;
+      flex: 1;
+    }
+    .features-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      margin-bottom: 1.25rem;
+    }
+    .features-list li::before {
+      content: '✓ ';
+      color: #10b981;
+      font-weight: bold;
+    }
+    .btn-select {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #fff;
+      border: none;
+      padding: 0.85rem 1.25rem;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .btn-select:hover { opacity: 0.9; }
+    .footer-note {
+      margin-top: 3rem;
+      text-align: center;
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge">DESIGN OPTIONS</div>
+    <h1>Borrower / User EMI Filter Designs</h1>
+    <p>Choose your preferred design layout for filtering multiple borrowers (e.g. Sughan, Father) and displaying their total combined EMI & loan portfolio.</p>
+  </div>
+
+  <div class="grid">
+
+    <!-- Option 1: Mobile Swipeable Borrower Cards -->
+    <div class="design-card">
+      <div class="card-img-wrap">
+        <img src="assets/alternative-ui-1-borrower-cards.jpg" alt="Option 1: Swipeable Borrower Cards">
+      </div>
+      <div class="card-body">
+        <span class="card-tag">Option 1 • Mobile First</span>
+        <h2 class="card-title">Swipeable Borrower Glass Cards</h2>
+        <p class="card-desc">Modern Apple Wallet / Cred style with horizontal swipeable profile cards and one-tap WhatsApp summary share.</p>
+        <ul class="features-list">
+          <li>Mini glass cards for each borrower with avatar & phone</li>
+          <li>Total Monthly EMI & active loan count in card</li>
+          <li>Instant <strong>WhatsApp Share</strong> button</li>
+          <li>Visual progress bar for each loan</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Option 2: Filter Pills & Cyan Summary Card -->
+    <div class="design-card">
+      <div class="card-img-wrap">
+        <img src="assets/borrower-filter-mobile-preview.jpg" alt="Option 2: Filter Pills & Summary Card">
+      </div>
+      <div class="card-body">
+        <span class="card-tag">Option 2 • Clean & Integrated</span>
+        <h2 class="card-title">Filter Chips & Neon Summary Card</h2>
+        <p class="card-desc">Seamless integration right under the search bar with auto-generated quick filter pills and dedicated summary banner.</p>
+        <ul class="features-list">
+          <li>Quick filter pills: <code>All</code>, <code>👤 Sughan (3)</code>, <code>👤 Father (1)</code></li>
+          <li>Dedicated glowing cyan Summary Banner</li>
+          <li>Shows Combined EMI, Total Outstanding & Active Loans</li>
+          <li>Works seamlessly on both Mobile & Desktop</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Option 3: Executive Portfolio & KPI Bar -->
+    <div class="design-card">
+      <div class="card-img-wrap">
+        <img src="assets/alternative-ui-2-portfolio-kpi.jpg" alt="Option 3: Executive Portfolio & KPI Bar">
+      </div>
+      <div class="card-body">
+        <span class="card-tag">Option 3 • Executive Dashboard</span>
+        <h2 class="card-title">Borrower Portfolio Dropdown & KPI Bar</h2>
+        <p class="card-desc">High-density banking dashboard with searchable borrower dropdown and 4-metric glowing KPI cards.</p>
+        <ul class="features-list">
+          <li>Searchable Borrower Selector dropdown menu</li>
+          <li>4 Glowing KPI cards (Monthly EMI, Outstanding, Paid, Share)</li>
+          <li>Structured ledger rows with interest rates & balance</li>
+          <li>Best for wide desktop & tablet screens</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    LoanPulse — Smart EMI Tracker • Open any image in your <code>assets/</code> folder to view high-resolution originals.
+  </div>
+
+</body>
+</html>

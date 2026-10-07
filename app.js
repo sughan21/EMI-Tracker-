@@ -112,6 +112,20 @@
     exportDataBtn: document.getElementById('exportDataBtn'),
     seedDemoDataBtn: document.getElementById('seedDemoDataBtn'),
     clearAllLoansBtn: document.getElementById('clearAllLoansBtn'),
+    viewByUserBtn: document.getElementById('viewByUserBtn'),
+    userLiveSummaryBanner: document.getElementById('userLiveSummaryBanner'),
+    ulsbName: document.getElementById('ulsbName'),
+    ulsbPhone: document.getElementById('ulsbPhone'),
+    ulsbEmi: document.getElementById('ulsbEmi'),
+    ulsbDebt: document.getElementById('ulsbDebt'),
+    ulsbCount: document.getElementById('ulsbCount'),
+    ulsbWhatsAppBtn: document.getElementById('ulsbWhatsAppBtn'),
+    ulsbClearBtn: document.getElementById('ulsbClearBtn'),
+    userPortfolioModal: document.getElementById('userPortfolioModal'),
+    userPortfolioSearchInput: document.getElementById('userPortfolioSearchInput'),
+    userPortfolioList: document.getElementById('userPortfolioList'),
+    closeUserPortfolioModalBtn: document.getElementById('closeUserPortfolioModalBtn'),
+    closeUserPortfolioBtn: document.getElementById('closeUserPortfolioBtn'),
     loansGrid: document.getElementById('loansGrid'),
     loansEmptyState: document.getElementById('loansEmptyState'),
     emptyAddBtn: document.getElementById('emptyAddBtn'),
@@ -1020,6 +1034,7 @@
     renderLoansGrid();
     renderTimeline();
     checkUrgentAlerts();
+    updateUserLiveSummaryBanner();
   }
 
   function renderMetrics() {
@@ -1560,7 +1575,275 @@
       `).join('');
     }
 
-    el.amortizationModal.classList.remove('hidden');
+  /* ==========================================================================
+     Borrower / User Portfolios (Separate Multiple Loans per User)
+     ========================================================================== */
+  function openUserPortfolioModal() {
+    renderUserPortfolios();
+    if (el.userPortfolioSearchInput) el.userPortfolioSearchInput.value = '';
+    if (el.userPortfolioModal) el.userPortfolioModal.classList.remove('hidden');
+  }
+
+  function closeUserPortfolioModal() {
+    if (el.userPortfolioModal) el.userPortfolioModal.classList.add('hidden');
+  }
+
+  function renderUserPortfolios(filterText = '') {
+    if (!el.userPortfolioList) return;
+    el.userPortfolioList.innerHTML = '';
+
+    if (!loans || loans.length === 0) {
+      el.userPortfolioList.innerHTML = `
+        <div class="empty-state" style="padding: 2.5rem 1rem; text-align: center;">
+          <div class="empty-icon">📭</div>
+          <h3 style="color:#fff; margin-bottom:0.5rem;">No Loans Found</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">Add loans with borrower names (or click "Load Samples") to view separated user portfolios.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Group loans by borrowerName (case-insensitive key)
+    const borrowerMap = new Map();
+    loans.forEach((loan) => {
+      const rawName = (loan.borrowerName && loan.borrowerName.trim()) || 'Self';
+      const key = rawName.toLowerCase();
+      if (!borrowerMap.has(key)) {
+        borrowerMap.set(key, {
+          displayName: rawName,
+          phone: loan.borrowerPhone ? loan.borrowerPhone.trim() : '',
+          loans: []
+        });
+      }
+      const entry = borrowerMap.get(key);
+      if (!entry.phone && loan.borrowerPhone && loan.borrowerPhone.trim()) {
+        entry.phone = loan.borrowerPhone.trim();
+      }
+      entry.loans.push(loan);
+    });
+
+    const query = filterText.toLowerCase().trim();
+    const currentYearMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    let matchCount = 0;
+
+    borrowerMap.forEach((entry) => {
+      const nameMatch = entry.displayName.toLowerCase().includes(query);
+      const phoneMatch = entry.phone.toLowerCase().includes(query);
+      const loansMatch = entry.loans.some((l) => l.name.toLowerCase().includes(query) || l.bank.toLowerCase().includes(query));
+
+      if (query && !nameMatch && !phoneMatch && !loansMatch) {
+        return;
+      }
+
+      matchCount++;
+      let totalEmi = 0;
+      let totalDebt = 0;
+
+      const loanItemsHtml = entry.loans.map((loan) => {
+        totalEmi += loan.emi;
+        const bal = calculateRemainingBalance(loan.principal, loan.interestRate, loan.tenureMonths, loan.paidInstallments);
+        totalDebt += bal;
+        const isPaid = loan.lastPaidMonth === currentYearMonth;
+        const dueInfo = getLoanDueStatus(loan);
+
+        return `
+          <div class="borrower-loan-item">
+            <div class="loan-item-left">
+              <span class="loan-item-icon">${getCategoryIcon(loan.category)}</span>
+              <div>
+                <strong>${loan.name}</strong>
+                <small>${loan.bank}${loan.accountNo ? ' • ' + loan.accountNo : ''} • Due on ${loan.dueDay}th</small>
+              </div>
+            </div>
+            <div class="loan-item-right">
+              <div>
+                <span class="loan-item-emi">${formatINR(loan.emi)}/mo</span>
+                <small style="display:block; color:var(--text-dim); font-size:0.7rem;">Bal: ${formatINR(bal)}</small>
+              </div>
+              <span class="due-badge ${dueInfo.badgeClass}" style="margin:0; font-size:0.7rem; padding:0.2rem 0.5rem;">${dueInfo.label}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const card = document.createElement('div');
+      card.className = 'borrower-portfolio-card';
+      card.innerHTML = `
+        <div class="borrower-card-header">
+          <div class="borrower-identity">
+            <div class="borrower-avatar">👤</div>
+            <div>
+              <h4 class="borrower-name">${entry.displayName}</h4>
+              <span class="borrower-phone">${entry.phone ? '📱 ' + entry.phone : '📱 No phone registered'}</span>
+            </div>
+          </div>
+          <div class="borrower-header-actions">
+            <button type="button" class="btn-whatsapp-mini" data-action="wa-summary" title="Send WhatsApp summary of all loans">
+              💬 WhatsApp Summary
+            </button>
+            <button type="button" class="btn-filter-mini" data-action="filter-dash" title="Filter this user on dashboard">
+              🔍 Filter on Dashboard
+            </button>
+          </div>
+        </div>
+
+        <div class="borrower-stats-row">
+          <div class="borrower-stat">
+            <span>Combined Monthly EMI</span>
+            <strong class="stat-highlight">${formatINR(totalEmi)}</strong>
+          </div>
+          <div class="borrower-stat">
+            <span>Total Debt Balance</span>
+            <strong>${formatINR(totalDebt)}</strong>
+          </div>
+          <div class="borrower-stat">
+            <span>Active Commitments</span>
+            <strong>${entry.loans.length} Loans</strong>
+          </div>
+        </div>
+
+        <div class="borrower-loans-list">
+          ${loanItemsHtml}
+        </div>
+      `;
+
+      // Event Listeners on Card
+      const waBtn = card.querySelector('[data-action="wa-summary"]');
+      if (waBtn) {
+        waBtn.addEventListener('click', () => {
+          openWhatsAppUserStatement(entry.displayName, entry.loans);
+        });
+      }
+
+      const filterBtn = card.querySelector('[data-action="filter-dash"]');
+      if (filterBtn) {
+        filterBtn.addEventListener('click', () => {
+          filterDashboardByBorrower(entry.displayName);
+        });
+      }
+
+      el.userPortfolioList.appendChild(card);
+    });
+
+    if (matchCount === 0) {
+      el.userPortfolioList.innerHTML = `
+        <div class="empty-state" style="padding: 2.5rem 1rem; text-align: center;">
+          <div class="empty-icon">🔍</div>
+          <h3 style="color:#fff; margin-bottom:0.5rem;">No matching users found</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">Try searching for a different borrower name or clear the search field.</p>
+        </div>
+      `;
+    }
+  }
+
+  function openWhatsAppUserStatement(borrowerName, borrowerLoans) {
+    if (!borrowerLoans || borrowerLoans.length === 0) return;
+    const firstLoanWithPhone = borrowerLoans.find((l) => l.borrowerPhone && l.borrowerPhone.trim());
+    let phone = firstLoanWithPhone ? firstLoanWithPhone.borrowerPhone.trim() : '';
+    if (!phone) {
+      const entered = prompt(`Enter mobile number to send WhatsApp summary for ${borrowerName}:`, '');
+      if (entered) phone = entered.trim();
+    }
+    const waPhone = formatPhoneForWhatsApp(phone);
+
+    let totalEmi = 0;
+    let totalBalance = 0;
+    const loanLines = borrowerLoans.map((l, i) => {
+      totalEmi += l.emi;
+      const bal = calculateRemainingBalance(l.principal, l.interestRate, l.tenureMonths, l.paidInstallments);
+      totalBalance += bal;
+      const dueInfo = getLoanDueStatus(l);
+      return `${i + 1}. *${l.name}* (${l.bank})\n   • EMI: ${formatINR(l.emi)} | Due: ${l.dueDay}th (${dueInfo.label})\n   • Remaining: ${formatINR(bal)}`;
+    }).join('\n\n');
+
+    const message = [
+      `📊 *LOANPULSE — COMBINED EMI PORTFOLIO* 📊`,
+      `---------------------------------`,
+      `👤 *Borrower:* ${borrowerName}`,
+      `💳 *Total Monthly EMI:* ${formatINR(totalEmi)}`,
+      `📉 *Total Debt Remaining:* ${formatINR(totalBalance)}`,
+      `📑 *Active Commitments:* ${borrowerLoans.length} Loans`,
+      `---------------------------------`,
+      `📌 *LOAN BREAKDOWN:*`,
+      loanLines,
+      `---------------------------------`,
+      `Sent securely via LoanPulse EMI Tracker`
+    ].join('\n');
+
+    const waUrl = waPhone
+      ? `https://api.whatsapp.com/send?phone=${waPhone}&text=${encodeURIComponent(message)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+  }
+
+  function filterDashboardByBorrower(borrowerName) {
+    closeUserPortfolioModal();
+    if (el.loanSearchInput) {
+      el.loanSearchInput.value = borrowerName;
+      searchQuery = borrowerName;
+      renderLoansGrid();
+      updateUserLiveSummaryBanner();
+      const controlsEl = document.querySelector('.table-controls');
+      if (controlsEl) {
+        controlsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }
+
+  function updateUserLiveSummaryBanner() {
+    if (!el.userLiveSummaryBanner) return;
+
+    if (!searchQuery || !searchQuery.trim()) {
+      el.userLiveSummaryBanner.classList.add('hidden');
+      return;
+    }
+
+    const q = searchQuery.toLowerCase().trim();
+    // Check if loans matching this query have a distinct borrower name
+    const matchingLoans = loans.filter((l) => {
+      const bName = (l.borrowerName || 'Self').toLowerCase();
+      const bPhone = (l.borrowerPhone || '').toLowerCase();
+      return bName.includes(q) || bPhone.includes(q) || l.name.toLowerCase().includes(q);
+    });
+
+    if (matchingLoans.length === 0) {
+      el.userLiveSummaryBanner.classList.add('hidden');
+      return;
+    }
+
+    // Identify primary borrower
+    const firstBorrower = matchingLoans[0].borrowerName || 'Self';
+    const firstPhone = matchingLoans[0].borrowerPhone || '';
+
+    let totalEmi = 0;
+    let totalDebt = 0;
+    matchingLoans.forEach((l) => {
+      totalEmi += l.emi;
+      totalDebt += calculateRemainingBalance(l.principal, l.interestRate, l.tenureMonths, l.paidInstallments);
+    });
+
+    if (el.ulsbName) el.ulsbName.textContent = firstBorrower;
+    if (el.ulsbPhone) el.ulsbPhone.textContent = firstPhone ? `📱 ${firstPhone}` : `📱 Contact on file`;
+    if (el.ulsbEmi) el.ulsbEmi.textContent = formatINR(totalEmi);
+    if (el.ulsbDebt) el.ulsbDebt.textContent = formatINR(totalDebt);
+    if (el.ulsbCount) el.ulsbCount.textContent = `${matchingLoans.length} Loans`;
+
+    if (el.ulsbWhatsAppBtn) {
+      el.ulsbWhatsAppBtn.onclick = () => {
+        openWhatsAppUserStatement(firstBorrower, matchingLoans);
+      };
+    }
+
+    if (el.ulsbClearBtn) {
+      el.ulsbClearBtn.onclick = () => {
+        if (el.loanSearchInput) el.loanSearchInput.value = '';
+        searchQuery = '';
+        renderLoansGrid();
+        el.userLiveSummaryBanner.classList.add('hidden');
+      };
+    }
+
+    el.userLiveSummaryBanner.classList.remove('hidden');
   }
 
   /* ==========================================================================
@@ -1702,6 +1985,7 @@
       el.loanSearchInput.addEventListener('input', (e) => {
         searchQuery = e.target.value.trim();
         renderLoansGrid();
+        updateUserLiveSummaryBanner();
       });
     }
 
@@ -1716,6 +2000,22 @@
       el.loanSortBy.addEventListener('change', (e) => {
         currentSort = e.target.value;
         renderLoansGrid();
+      });
+    }
+
+    // View by User / Borrower Portfolios
+    if (el.viewByUserBtn) {
+      el.viewByUserBtn.addEventListener('click', () => openUserPortfolioModal());
+    }
+    if (el.closeUserPortfolioModalBtn) {
+      el.closeUserPortfolioModalBtn.addEventListener('click', () => closeUserPortfolioModal());
+    }
+    if (el.closeUserPortfolioBtn) {
+      el.closeUserPortfolioBtn.addEventListener('click', () => closeUserPortfolioModal());
+    }
+    if (el.userPortfolioSearchInput) {
+      el.userPortfolioSearchInput.addEventListener('input', (e) => {
+        renderUserPortfolios(e.target.value);
       });
     }
 

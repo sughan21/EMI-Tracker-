@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
   <div class="app-wrapper">
@@ -247,6 +247,9 @@
               <option value="balance-desc">Sort: Balance (Largest First)</option>
             </select>
 
+            <button class="btn btn-secondary btn-sm" id="viewByUserBtn" title="View loans grouped by user/borrower">
+              <span>👥 View by User</span>
+            </button>
             <button class="btn btn-secondary btn-sm" id="exportDataBtn" title="Export loans as backup JSON">
               <span>💾 Backup</span>
             </button>
@@ -256,6 +259,35 @@
             <button class="btn btn-secondary btn-sm" id="clearAllLoansBtn" title="Clear all loans and start fresh">
               <span>🗑️ Clear All</span>
             </button>
+          </div>
+        </div>
+
+        <!-- Borrower Active Summary Banner (shown when filtered by borrower) -->
+        <div id="userLiveSummaryBanner" class="user-live-summary-banner hidden">
+          <div class="ulsb-content">
+            <div class="ulsb-identity">
+              <span class="ulsb-badge">👤 USER PORTFOLIO</span>
+              <h3 id="ulsbName">Sughan Rithvik</h3>
+              <span id="ulsbPhone" class="ulsb-phone">📱 9876543210</span>
+            </div>
+            <div class="ulsb-stats">
+              <div class="ulsb-stat-pill">
+                <span>Monthly EMI:</span>
+                <strong id="ulsbEmi" class="text-cyan">₹0</strong>
+              </div>
+              <div class="ulsb-stat-pill">
+                <span>Total Debt:</span>
+                <strong id="ulsbDebt">₹0</strong>
+              </div>
+              <div class="ulsb-stat-pill">
+                <span>Active Loans:</span>
+                <strong id="ulsbCount">0</strong>
+              </div>
+            </div>
+          </div>
+          <div class="ulsb-actions">
+            <button class="btn btn-accent btn-sm" id="ulsbWhatsAppBtn" title="Share full summary on WhatsApp">💬 WhatsApp Share</button>
+            <button class="btn btn-secondary btn-sm" id="ulsbClearBtn" title="Show all loans">✕ Clear Filter</button>
           </div>
         </div>
 
@@ -894,6 +926,32 @@
     </div>
   </div>
 
+  <!-- MODAL: USER & BORROWER PORTFOLIOS (SEPARATE MULTIPLE LOANS PER USER) -->
+  <div id="userPortfolioModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="userPortfolioModalTitle">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3 id="userPortfolioModalTitle">👥 User & Borrower Portfolios</h3>
+          <p class="modal-sub">Separate loans, total EMI, and balances grouped by user</p>
+        </div>
+        <button class="modal-close" id="closeUserPortfolioModalBtn" aria-label="Close modal">&times;</button>
+      </div>
+
+      <div class="user-portfolio-search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="userPortfolioSearchInput" placeholder="Search user / borrower (e.g. Sughan, Father)..." class="portfolio-search-input">
+      </div>
+
+      <div class="user-portfolio-scroll" id="userPortfolioList">
+        <!-- Rendered dynamically via app.js -->
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="closeUserPortfolioBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Mobile Bottom Navigation Bar (Visible on mobile screens) -->
   <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
     <button class="mobile-nav-item active" data-tab="tab-loans" title="Active EMIs">
@@ -923,6 +981,6 @@
     <div class="toast-message" id="toastMessage">Alert notification</div>
   </div>
 
-  <script src="app.js?v=18"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>

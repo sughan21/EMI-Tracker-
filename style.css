@@ -3081,3 +3081,513 @@ body {
   }
 }
 
+/* ==========================================================================
+   User & Borrower Portfolios (Separate Multiple Loans per User)
+   ========================================================================== */
+
+/* Live User Summary Banner on Main Dashboard */
+.user-live-summary-banner {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(99, 102, 241, 0.15));
+  border: 1px solid rgba(6, 182, 212, 0.45);
+  box-shadow: 0 0 25px rgba(6, 182, 212, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.35rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  animation: fadeIn 0.25s ease-out;
+}
+.ulsb-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.ulsb-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.ulsb-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-cyan);
+}
+.ulsb-identity h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+}
+.ulsb-phone {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.ulsb-stats {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.ulsb-stat-pill {
+  background: rgba(11, 15, 25, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+}
+.ulsb-stat-pill span {
+  color: var(--text-muted);
+}
+.ulsb-stat-pill strong {
+  color: #fff;
+  font-size: 0.92rem;
+}
+.ulsb-stat-pill strong.text-cyan {
+  color: var(--accent-cyan);
+}
+.ulsb-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* User Portfolio Modal */
+.user-portfolio-search-box {
+  padding: 0.85rem 1.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.user-portfolio-search-box .search-icon {
+  position: absolute;
+  left: 2.25rem;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+.portfolio-search-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.9rem 0.65rem 2.4rem;
+  color: #fff;
+  font-size: 0.9rem;
+  font-family: var(--font-family);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+.portfolio-search-input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 2px var(--accent-cyan-soft);
+}
+.user-portfolio-scroll {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-height: 65vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Individual Borrower Portfolio Card */
+.borrower-portfolio-card {
+  background: rgba(18, 24, 38, 0.92);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+.borrower-portfolio-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+.borrower-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.borrower-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.borrower-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(6, 182, 212, 0.25));
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+.borrower-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.15rem;
+}
+.borrower-phone {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.borrower-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.btn-whatsapp-mini, .btn-filter-mini {
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all var(--transition-fast);
+}
+.btn-whatsapp-mini {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.btn-whatsapp-mini:hover {
+  background: #10b981;
+  color: #fff;
+}
+.btn-filter-mini {
+  background: rgba(6, 182, 212, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+}
+.btn-filter-mini:hover {
+  background: var(--accent-cyan);
+  color: #0b0f19;
+}
+
+/* Borrower Stats Strip */
+.borrower-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+.borrower-stat {
+  background: rgba(11, 15, 25, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.borrower-stat span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.borrower-stat strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+.borrower-stat strong.stat-highlight {
+  color: var(--accent-cyan);
+  text-shadow: 0 0 12px rgba(6, 182, 212, 0.3);
+}
+
+/* Borrower Loans List Inside Card */
+.borrower-loans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.borrower-loan-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  transition: background var(--transition-fast);
+}
+.borrower-loan-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.loan-item-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.loan-item-icon {
+  font-size: 1.25rem;
+}
+.loan-item-left div {
+  min-width: 0;
+}
+.loan-item-left strong {
+  display: block;
+  font-size: 0.88rem;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.loan-item-left small {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+.loan-item-right {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+.loan-item-emi {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #fff;
+}
+
+/* View by User Button Accent */
+#viewByUserBtn {
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  background: rgba(99, 102, 241, 0.12) !important;
+  color: #a5b4fc !important;
+  font-weight: 700 !important;
+}
+#viewByUserBtn:hover,
+#viewByUserBtn:active {
+  background: rgba(99, 102, 241, 0.25) !important;
+  border-color: #818cf8 !important;
+  color: #fff !important;
+}
+
+/* Responsive: Tablets & Mobile Devices (<= 768px) */
+@media (max-width: 768px) {
+  /* User Live Summary Banner on Mobile */
+  .user-live-summary-banner {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 0.95rem 1rem !important;
+    gap: 0.85rem !important;
+    margin-bottom: 1.15rem !important;
+    border-radius: var(--radius-sm) !important;
+  }
+  .ulsb-content {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+  }
+  .ulsb-identity h3 {
+    font-size: 1.1rem !important;
+  }
+  .ulsb-stats {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.45rem !important;
+  }
+  .ulsb-stat-pill {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 0.45rem 0.55rem !important;
+    gap: 0.2rem !important;
+    width: 100% !important;
+  }
+  .ulsb-stat-pill span {
+    font-size: 0.68rem !important;
+    white-space: nowrap !important;
+  }
+  .ulsb-stat-pill strong {
+    font-size: 0.85rem !important;
+  }
+  .ulsb-actions {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+  }
+  .ulsb-actions .btn {
+    width: 100% !important;
+    min-height: 42px !important;
+    font-size: 0.8rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.5rem !important;
+    touch-action: manipulation;
+  }
+
+  /* User Portfolio Modal on Mobile (Bottom Sheet) */
+  #userPortfolioModal .modal-dialog {
+    max-height: 90dvh !important;
+    max-height: 90vh !important;
+    border-radius: 22px 22px 0 0 !important;
+  }
+  .user-portfolio-search-box {
+    padding: 0.75rem 1rem !important;
+  }
+  .user-portfolio-search-box .search-icon {
+    left: 1.85rem !important;
+  }
+  .portfolio-search-input {
+    font-size: 16px !important; /* Prevents auto zoom on mobile */
+    height: 44px !important;
+    padding: 0.6rem 0.85rem 0.6rem 2.25rem !important;
+  }
+  .user-portfolio-scroll {
+    padding: 0.85rem 1rem 1rem !important;
+    gap: 1rem !important;
+    max-height: unset !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Borrower Card on Mobile */
+  .borrower-portfolio-card {
+    padding: 1rem !important;
+    border-radius: var(--radius-sm) !important;
+  }
+  .borrower-card-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+    margin-bottom: 0.85rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+  .borrower-identity {
+    width: 100% !important;
+    gap: 0.65rem !important;
+  }
+  .borrower-avatar {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 1.1rem !important;
+  }
+  .borrower-name {
+    font-size: 1.05rem !important;
+  }
+  .borrower-header-actions {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+  }
+  .btn-whatsapp-mini,
+  .btn-filter-mini {
+    width: 100% !important;
+    min-height: 42px !important;
+    justify-content: center !important;
+    font-size: 0.78rem !important;
+    padding: 0.45rem 0.5rem !important;
+    touch-action: manipulation;
+  }
+
+  /* Borrower Stats on Mobile */
+  .borrower-stats-row {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.45rem !important;
+    margin-bottom: 0.85rem !important;
+  }
+  .borrower-stat {
+    padding: 0.5rem 0.45rem !important;
+    text-align: center !important;
+    align-items: center !important;
+  }
+  .borrower-stat span {
+    font-size: 0.65rem !important;
+    line-height: 1.15;
+  }
+  .borrower-stat strong {
+    font-size: 0.88rem !important;
+  }
+
+  /* Borrower Loan Items on Mobile */
+  .borrower-loans-list {
+    gap: 0.45rem !important;
+  }
+  .borrower-loan-item {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 0.65rem 0.75rem !important;
+    gap: 0.45rem !important;
+  }
+  .loan-item-left {
+    width: 100% !important;
+    gap: 0.6rem !important;
+  }
+  .loan-item-left strong {
+    font-size: 0.85rem !important;
+    white-space: normal !important;
+    line-height: 1.25;
+  }
+  .loan-item-left small {
+    font-size: 0.7rem !important;
+  }
+  .loan-item-right {
+    width: 100% !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding-top: 0.35rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  }
+  .loan-item-emi {
+    font-size: 0.88rem !important;
+  }
+}
+
+/* Extra Small Phones (<= 400px) */
+@media (max-width: 400px) {
+  .filter-group .btn-sm {
+    font-size: 0.74rem !important;
+    padding: 0 0.35rem !important;
+  }
+  .ulsb-stats {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .ulsb-stats .ulsb-stat-pill:last-child {
+    grid-column: span 2;
+  }
+  .borrower-stats-row {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .borrower-stats-row .borrower-stat:last-child {
+    grid-column: span 2;
+  }
+  .borrower-header-actions {
+    grid-template-columns: 1fr !important;
+  }
+  .ulsb-actions {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
