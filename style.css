@@ -3565,6 +3565,56 @@ body.modal-open {
   color: #0b0f19;
 }
 
+/* Borrower Single Total Loans Amount Showcase */
+.borrower-total-amount-box {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.09) 0%, rgba(15, 23, 42, 0.85) 100%);
+  border: 1px solid rgba(6, 182, 212, 0.28);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.35rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+  position: relative;
+  overflow: hidden;
+}
+.borrower-total-amount-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--accent-cyan), #38bdf8);
+  border-radius: 4px 0 0 4px;
+}
+.borrower-amount-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.borrower-amount-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-cyan);
+}
+.borrower-amount-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.borrower-amount-value {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #ffffff;
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 18px rgba(6, 182, 212, 0.35);
+  white-space: nowrap;
+}
+
 /* Borrower Stats Strip */
 .borrower-stats-row {
   display: grid;
@@ -3855,6 +3905,15 @@ body.modal-open {
     font-size: 0.8rem !important;
     padding: 0.5rem !important;
     touch-action: manipulation;
+  }
+
+  /* Borrower Total Amount Box on Mobile */
+  .borrower-total-amount-box {
+    padding: 0.95rem 1.1rem !important;
+    gap: 0.75rem !important;
+  }
+  .borrower-amount-value {
+    font-size: 1.35rem !important;
   }
 
   /* Borrower Stats on Mobile */

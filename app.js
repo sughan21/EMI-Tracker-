@@ -2116,35 +2116,11 @@
       }
 
       matchCount++;
-      let totalEmi = 0;
       let totalDebt = 0;
-
-      const loanItemsHtml = entry.loans.map((loan) => {
-        totalEmi += loan.emi;
+      entry.loans.forEach((loan) => {
         const bal = calculateRemainingBalance(loan.principal, loan.interestRate, loan.tenureMonths, loan.paidInstallments);
         totalDebt += bal;
-        const isPaid = loan.lastPaidMonth === currentYearMonth;
-        const dueInfo = getLoanDueStatus(loan);
-
-        return `
-          <div class="borrower-loan-item">
-            <div class="loan-item-left">
-              <span class="loan-item-icon">${getCategoryIcon(loan.category)}</span>
-              <div>
-                <strong>${loan.name}</strong>
-                <small>${loan.bank}${loan.accountNo ? ' • ' + loan.accountNo : ''} • Due on ${loan.dueDay}th</small>
-              </div>
-            </div>
-            <div class="loan-item-right">
-              <div>
-                <span class="loan-item-emi">${formatINR(loan.emi)}/mo</span>
-                <small style="display:block; color:var(--text-dim); font-size:0.7rem;">Bal: ${formatINR(bal)}</small>
-              </div>
-              <span class="due-badge ${dueInfo.badgeClass}" style="margin:0; font-size:0.7rem; padding:0.2rem 0.5rem;">${dueInfo.label}</span>
-            </div>
-          </div>
-        `;
-      }).join('');
+      });
 
       const card = document.createElement('div');
       card.className = 'borrower-portfolio-card';
@@ -2158,7 +2134,7 @@
             </div>
           </div>
           <div class="borrower-header-actions">
-            <button type="button" class="btn-whatsapp-mini" data-action="wa-summary" title="Send WhatsApp summary of all loans">
+            <button type="button" class="btn-whatsapp-mini" data-action="wa-summary" title="Send WhatsApp summary of total loans">
               💬 WhatsApp Summary
             </button>
             <button type="button" class="btn-filter-mini" data-action="filter-dash" title="Filter this user on dashboard">
@@ -2167,23 +2143,12 @@
           </div>
         </div>
 
-        <div class="borrower-stats-row">
-          <div class="borrower-stat">
-            <span>Combined Monthly EMI</span>
-            <strong class="stat-highlight">${formatINR(totalEmi)}</strong>
+        <div class="borrower-total-amount-box">
+          <div class="borrower-amount-info">
+            <span class="borrower-amount-label">Total Loans Amount</span>
+            <span class="borrower-amount-sub">Total outstanding debt balance</span>
           </div>
-          <div class="borrower-stat">
-            <span>Total Debt Balance</span>
-            <strong>${formatINR(totalDebt)}</strong>
-          </div>
-          <div class="borrower-stat">
-            <span>Active Commitments</span>
-            <strong>${entry.loans.length} Loans</strong>
-          </div>
-        </div>
-
-        <div class="borrower-loans-list">
-          ${loanItemsHtml}
+          <strong class="borrower-amount-value">${formatINR(totalDebt)}</strong>
         </div>
       `;
 
