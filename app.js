@@ -113,6 +113,7 @@
     seedDemoDataBtn: document.getElementById('seedDemoDataBtn'),
     clearAllLoansBtn: document.getElementById('clearAllLoansBtn'),
     viewByUserBtn: document.getElementById('viewByUserBtn'),
+    navViewByUserBtn: document.getElementById('navViewByUserBtn'),
     userLiveSummaryBanner: document.getElementById('userLiveSummaryBanner'),
     ulsbName: document.getElementById('ulsbName'),
     ulsbPhone: document.getElementById('ulsbPhone'),
@@ -961,49 +962,130 @@
      ========================================================================== */
   async function loadLoans() {
     try {
-      const devKey = ensureDeviceKey();
       if (isPinRequired() && !isVaultUnlocked) {
         showLockScreen();
         return;
       }
 
-      if (!currentVaultSecret) {
-        currentVaultSecret = devKey;
-        isVaultUnlocked = true;
+      // 1. Try reading from standard storage first (fast, synchronous, 100% reliable)
+      const storedPlain = localStorage.getItem(STORAGE_KEY_LOANS);
+      if (storedPlain) {
+        try {
+          const parsed = JSON.parse(storedPlain);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            loans = parsed.map((loan) => ({
+              ...loan,
+              borrowerName: loan.borrowerName || 'Self',
+              borrowerPhone: loan.borrowerPhone || ''
+            }));
+            // Mirror to fallback key
+            localStorage.setItem('loanpulse_loans', JSON.stringify(loans));
+            renderAll();
+            return;
+          }
+        } catch (e) {
+          console.warn('Error parsing plain loans:', e);
+        }
       }
 
+      // 2. Try encrypted vault if available
       const encryptedDataStr = localStorage.getItem(STORAGE_KEY_VAULT);
-      if (encryptedDataStr) {
-        const encryptedObj = JSON.parse(encryptedDataStr);
-        const decryptedJson = await CryptoVault.decrypt(encryptedObj, currentVaultSecret);
-        loans = JSON.parse(decryptedJson).map((loan) => ({
-          borrowerName: loan.borrowerName || 'Self',
-          borrowerPhone: loan.borrowerPhone || '',
-          ...loan
-        }));
-      } else {
-        // Migration from legacy unencrypted storage
-        const legacyStored = localStorage.getItem(STORAGE_KEY_LOANS);
+      if (encryptedDataStr && window.crypto && window.crypto.subtle) {
+        try {
+          const devKey = ensureDeviceKey();
+          if (!currentVaultSecret) {
+            currentVaultSecret = devKey;
+            isVaultUnlocked = true;
+          }
+          const encryptedObj = JSON.parse(encryptedDataStr);
+          const decryptedJson = await CryptoVault.decrypt(encryptedObj, currentVaultSecret);
+          const parsed = JSON.parse(decryptedJson);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            loans = parsed.map((loan) => ({
+              ...loan,
+              borrowerName: loan.borrowerName || 'Self',
+              borrowerPhone: loan.borrowerPhone || ''
+            }));
+            // Back-save to plain storage so it's always ready on HTTP and offline
+            localStorage.setItem(STORAGE_KEY_LOANS, JSON.stringify(loans));
+            localStorage.setItem('loanpulse_loans', JSON.stringify(loans));
+            localStorage.setItem('loanpulse_has_initialized', 'true');
+            renderAll();
+            return;
+          }
+        } catch (vErr) {
+          console.warn('Encrypted vault recovery skipped:', vErr);
+        }
+      }
+
+      // 3. Fallback: check legacy unencrypted storage keys (loanpulse_loans, loanpulse_loans_v1, etc.)
+      const candidateKeys = ['loanpulse_loans', 'loanpulse_loans_v1', 'emi_loans', 'loans'];
+      for (const k of candidateKeys) {
+        const legacyStored = localStorage.getItem(k);
         if (legacyStored) {
           try {
-            loans = JSON.parse(legacyStored);
-            localStorage.removeItem(STORAGE_KEY_LOANS);
-          } catch (e) {
-            loans = [];
-          }
-        } else {
-          // New user opening tracker: start clean and independent
-          loans = [];
+            const parsed = JSON.parse(legacyStored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              loans = parsed.map((loan) => ({
+                ...loan,
+                borrowerName: loan.borrowerName || 'Self',
+                borrowerPhone: loan.borrowerPhone || ''
+              }));
+              saveLoans();
+              renderAll();
+              return;
+            }
+          } catch (e) {}
         }
-        saveLoans();
       }
-    } catch (e) {
-      console.warn('Error decrypting loans vault:', e);
-      if (isPinRequired() && !isVaultUnlocked) {
-        showLockScreen();
+
+      // 4. Exhaustive search across all localStorage keys for any saved loan records
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('loan') || key.includes('emi')) && key !== STORAGE_KEY_SETTINGS) {
+            const val = localStorage.getItem(key);
+            if (val && (val.includes('"principal"') || val.includes('"emi"'))) {
+              const parsed = JSON.parse(val);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                loans = parsed.map((loan) => ({
+                  ...loan,
+                  borrowerName: loan.borrowerName || 'Self',
+                  borrowerPhone: loan.borrowerPhone || ''
+                }));
+                saveLoans();
+                renderAll();
+                return;
+              }
+            }
+          }
+        }
+      } catch (scanErr) {
+        console.warn('Storage scan completed:', scanErr);
+      }
+
+      // 5. Default initial seed on very first app visit if never initialized
+      const hasInitialized = localStorage.getItem('loanpulse_has_initialized');
+      if (!hasInitialized) {
+        loans = [...DEFAULT_LOANS];
+        saveLoans();
+        renderAll();
         return;
       }
-      if (!loans || loans.length === 0) {
+
+      if (!loans || !Array.isArray(loans)) {
+        loans = [];
+      }
+    } catch (e) {
+      console.warn('Error in loadLoans:', e);
+      const storedPlain = localStorage.getItem(STORAGE_KEY_LOANS);
+      if (storedPlain) {
+        try {
+          loans = JSON.parse(storedPlain);
+        } catch (err) {
+          loans = [];
+        }
+      } else {
         loans = [];
       }
     }
@@ -1011,19 +1093,38 @@
   }
 
   function saveLoans() {
-    if (!currentVaultSecret) {
-      currentVaultSecret = ensureDeviceKey();
-      isVaultUnlocked = true;
+    if (!loans) loans = [];
+
+    // 1. Synchronously persist immediately to standard localStorage (guaranteed, instant, reliable on all devices & protocols)
+    try {
+      const json = JSON.stringify(loans);
+      localStorage.setItem(STORAGE_KEY_LOANS, json);
+      localStorage.setItem('loanpulse_loans', json); // Redundant mirror key
+      localStorage.setItem('loanpulse_has_initialized', 'true');
+    } catch (e) {
+      console.warn('LocalStorage save failed:', e);
     }
-    const jsonStr = JSON.stringify(loans);
-    CryptoVault.encrypt(jsonStr, currentVaultSecret)
-      .then((encryptedPayload) => {
-        localStorage.setItem(STORAGE_KEY_VAULT, JSON.stringify(encryptedPayload));
-        localStorage.removeItem(STORAGE_KEY_LOANS); // Always ensure no plaintext is left on disk
-      })
-      .catch((err) => {
-        console.error('Vault encryption failed:', err);
-      });
+
+    // 2. Also save to encrypted vault if crypto.subtle is supported (HTTPS / Secure Context)
+    // NOTE: We NEVER remove the plain storage, ensuring zero data loss on page refreshes or HTTP.
+    try {
+      if (window.crypto && window.crypto.subtle) {
+        if (!currentVaultSecret) {
+          currentVaultSecret = ensureDeviceKey();
+          isVaultUnlocked = true;
+        }
+        const jsonStr = JSON.stringify(loans);
+        CryptoVault.encrypt(jsonStr, currentVaultSecret)
+          .then((encryptedPayload) => {
+            localStorage.setItem(STORAGE_KEY_VAULT, JSON.stringify(encryptedPayload));
+          })
+          .catch((err) => {
+            console.warn('Vault encryption fallback:', err);
+          });
+      }
+    } catch (err) {
+      console.warn('Vault encryption fallback:', err);
+    }
   }
 
   /* ==========================================================================
@@ -1575,6 +1676,9 @@
       `).join('');
     }
 
+    el.amortizationModal.classList.remove('hidden');
+  }
+
   /* ==========================================================================
      Borrower / User Portfolios (Separate Multiple Loans per User)
      ========================================================================== */
@@ -1778,6 +1882,7 @@
 
   function filterDashboardByBorrower(borrowerName) {
     closeUserPortfolioModal();
+    switchTab('tab-loans');
     if (el.loanSearchInput) {
       el.loanSearchInput.value = borrowerName;
       searchQuery = borrowerName;
@@ -2006,6 +2111,9 @@
     // View by User / Borrower Portfolios
     if (el.viewByUserBtn) {
       el.viewByUserBtn.addEventListener('click', () => openUserPortfolioModal());
+    }
+    if (el.navViewByUserBtn) {
+      el.navViewByUserBtn.addEventListener('click', () => openUserPortfolioModal());
     }
     if (el.closeUserPortfolioModalBtn) {
       el.closeUserPortfolioModalBtn.addEventListener('click', () => closeUserPortfolioModal());

@@ -1,12 +1,12 @@
 // Service Worker for LoanPulse — Smart EMI Tracker & Reminders
-const CACHE_NAME = 'loanpulse-v20';
+const CACHE_NAME = 'loanpulse-v23';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
-  './style.css?v=20',
+  './style.css?v=23',
   './app.js',
-  './app.js?v=20',
+  './app.js?v=23',
   './manifest.json',
   './assets/hero.jpg',
   './assets/app-icon.jpg'
@@ -34,16 +34,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// 100% Offline Cache-First Strategy with Dynamic Fallback & ignoreSearch
+// Network-First Strategy for Code (HTML, JS, CSS) to prevent stale cache lockup,
+// Cache-First for static media (images, fonts)
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request)
+  const url = new URL(event.request.url);
+  const isCodeAsset = url.pathname.endsWith('.html') ||
+                      url.pathname.endsWith('.js') ||
+                      url.pathname.endsWith('.css') ||
+                      url.pathname === '/' ||
+                      url.pathname.endsWith('/');
+
+  if (isCodeAsset) {
+    // Network-First with Cache Fallback for code assets
+    event.respondWith(
+      fetch(event.request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
@@ -54,15 +60,34 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // If completely offline and request is navigation, serve index.html
-          if (event.request.mode === 'navigate') {
-            return caches.match('./index.html', { ignoreSearch: true });
+          return caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
+            if (cachedResponse) return cachedResponse;
+            if (event.request.mode === 'navigate') {
+              return caches.match('./index.html', { ignoreSearch: true });
+            }
+            return caches.match('./app.js', { ignoreSearch: true });
+          });
+        })
+    );
+  } else {
+    // Cache-First for static media (images, icons)
+    event.respondWith(
+      caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
           }
-          // Return cached version without search params
-          return caches.match(event.request, { ignoreSearch: true });
+          return networkResponse;
         });
-    })
-  );
+      })
+    );
+  }
 });
 
 // PostMessage listener to trigger notifications reliably from page on mobile & desktop
