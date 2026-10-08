@@ -10,13 +10,13 @@
   const STORAGE_KEY_LOANS = 'loanpulse_loans_v2';
   const STORAGE_KEY_SETTINGS = 'loanpulse_settings_v2';
 
-  // Demo Loans Seed Data
+  // Generic Demo Loans Seed Data (Loaded only if user explicitly clicks "Load Samples")
   const DEFAULT_LOANS = [
     {
-      id: 'loan-1',
-      name: 'HDFC Car Loan (Creta)',
-      borrowerName: 'Sughan Rithvik',
-      borrowerPhone: '9876543210',
+      id: 'demo-loan-1',
+      name: 'Sample Car Loan',
+      borrowerName: 'Self',
+      borrowerPhone: '',
       category: 'Car',
       bank: 'HDFC Bank',
       accountNo: 'LAN-8829104',
@@ -31,10 +31,10 @@
       notes: 'Auto-debit from Salary Account'
     },
     {
-      id: 'loan-2',
-      name: 'SBI Privilege Home Loan',
-      borrowerName: 'Father / Family',
-      borrowerPhone: '9840123456',
+      id: 'demo-loan-2',
+      name: 'Sample Home Loan',
+      borrowerName: 'Family',
+      borrowerPhone: '',
       category: 'Home',
       bank: 'State Bank of India',
       accountNo: 'HL-09124471',
@@ -46,15 +46,15 @@
       startDate: '2024-02-10',
       paidInstallments: 32,
       lastPaidMonth: '2026-09',
-      notes: 'PMAY subsidy adjusted'
+      notes: 'Monthly home installment'
     },
     {
-      id: 'loan-3',
-      name: 'Apple iPhone 16 Pro EMI',
-      borrowerName: 'Sughan (Self)',
-      borrowerPhone: '9876543210',
+      id: 'demo-loan-3',
+      name: 'Sample Electronics EMI',
+      borrowerName: 'Self',
+      borrowerPhone: '',
       category: 'Gadget',
-      bank: 'HDFC CC No-Cost',
+      bank: 'Consumer Finance',
       accountNo: 'CC-EMI-9921',
       principal: 134900,
       interestRate: 0,
@@ -64,7 +64,7 @@
       startDate: '2026-06-18',
       paidInstallments: 4,
       lastPaidMonth: '2026-09',
-      notes: 'Zero interest scheme'
+      notes: 'No-cost EMI scheme'
     }
   ];
 
@@ -918,9 +918,12 @@
     }
 
     // Permission is granted! Fire the system notification
+    const reminderSummary = (loans && loans.length > 0)
+      ? `Upcoming: ${loans[0].name} EMI due on the ${loans[0].dueDay}th.`
+      : 'Automated alerts are working! Your due dates will ring on time.';
     const success = await triggerPushNotification(
       '🔔 LoanPulse EMI Reminder',
-      'Automated alerts are working! Next: HDFC Car Loan (Creta) due soon.'
+      reminderSummary
     );
 
     if (success) {
@@ -1114,6 +1117,16 @@
   /* ==========================================================================
      Encrypted Storage: Load & Save
      ========================================================================== */
+  // Helper to detect legacy seed data from previous test sessions
+  function isLegacyDefaultSeed(arr) {
+    if (!Array.isArray(arr) || arr.length === 0) return false;
+    return arr.some((l) => 
+      l.borrowerName === 'Sughan Rithvik' ||
+      l.borrowerPhone === '9876543210' ||
+      (l.name && l.name.includes('Creta'))
+    );
+  }
+
   async function loadLoans() {
     try {
       if (isPinRequired() && !isVaultUnlocked) {
@@ -1121,19 +1134,40 @@
         return;
       }
 
-      // 1. Try reading from standard storage first (fast, synchronous, 100% reliable)
+      // Check URL parameters for explicit fresh start (?fresh=1, ?new=1, ?reset=1, ?clean=1)
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('fresh') || urlParams.has('new') || urlParams.has('reset') || urlParams.has('clean')) {
+        loans = [];
+        localStorage.setItem(STORAGE_KEY_LOANS, '[]');
+        localStorage.setItem('loanpulse_loans', '[]');
+        localStorage.setItem('loanpulse_has_initialized', 'true');
+        if (window.history && window.history.replaceState) {
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+        renderAll();
+        return;
+      }
+
+      // 1. Try reading from standard storage first (fast, synchronous, reliable)
       const storedPlain = localStorage.getItem(STORAGE_KEY_LOANS);
-      if (storedPlain) {
+      if (storedPlain !== null) {
         try {
           const parsed = JSON.parse(storedPlain);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
+            // Auto-clean if this browser was seeded with legacy test records
+            if (isLegacyDefaultSeed(parsed)) {
+              loans = [];
+              saveLoans();
+              renderAll();
+              return;
+            }
+
             loans = parsed.map((loan) => ({
               ...loan,
               borrowerName: loan.borrowerName || 'Self',
               borrowerPhone: loan.borrowerPhone || ''
             }));
-            // Mirror to fallback key
-            localStorage.setItem('loanpulse_loans', JSON.stringify(loans));
             renderAll();
             return;
           }
@@ -1154,13 +1188,19 @@
           const encryptedObj = JSON.parse(encryptedDataStr);
           const decryptedJson = await CryptoVault.decrypt(encryptedObj, currentVaultSecret);
           const parsed = JSON.parse(decryptedJson);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
+            if (isLegacyDefaultSeed(parsed)) {
+              loans = [];
+              saveLoans();
+              renderAll();
+              return;
+            }
+
             loans = parsed.map((loan) => ({
               ...loan,
               borrowerName: loan.borrowerName || 'Self',
               borrowerPhone: loan.borrowerPhone || ''
             }));
-            // Back-save to plain storage so it's always ready on HTTP and offline
             localStorage.setItem(STORAGE_KEY_LOANS, JSON.stringify(loans));
             localStorage.setItem('loanpulse_loans', JSON.stringify(loans));
             localStorage.setItem('loanpulse_has_initialized', 'true');
@@ -1172,76 +1212,15 @@
         }
       }
 
-      // 3. Fallback: check legacy unencrypted storage keys (loanpulse_loans, loanpulse_loans_v1, etc.)
-      const candidateKeys = ['loanpulse_loans', 'loanpulse_loans_v1', 'emi_loans', 'loans'];
-      for (const k of candidateKeys) {
-        const legacyStored = localStorage.getItem(k);
-        if (legacyStored) {
-          try {
-            const parsed = JSON.parse(legacyStored);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              loans = parsed.map((loan) => ({
-                ...loan,
-                borrowerName: loan.borrowerName || 'Self',
-                borrowerPhone: loan.borrowerPhone || ''
-              }));
-              saveLoans();
-              renderAll();
-              return;
-            }
-          } catch (e) {}
-        }
-      }
-
-      // 4. Exhaustive search across all localStorage keys for any saved loan records
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.includes('loan') || key.includes('emi')) && key !== STORAGE_KEY_SETTINGS) {
-            const val = localStorage.getItem(key);
-            if (val && (val.includes('"principal"') || val.includes('"emi"'))) {
-              const parsed = JSON.parse(val);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                loans = parsed.map((loan) => ({
-                  ...loan,
-                  borrowerName: loan.borrowerName || 'Self',
-                  borrowerPhone: loan.borrowerPhone || ''
-                }));
-                saveLoans();
-                renderAll();
-                return;
-              }
-            }
-          }
-        }
-      } catch (scanErr) {
-        console.warn('Storage scan completed:', scanErr);
-      }
-
-      // 5. Default initial seed on very first app visit if never initialized
-      const hasInitialized = localStorage.getItem('loanpulse_has_initialized');
-      if (!hasInitialized) {
-        loans = [...DEFAULT_LOANS];
-        saveLoans();
-        renderAll();
-        return;
-      }
-
-      if (!loans || !Array.isArray(loans)) {
-        loans = [];
-      }
+      // 3. For new visitors / new users clicking the link:
+      // ALWAYS start completely FRESH with 0 loans so no other user details appear!
+      loans = [];
+      localStorage.setItem('loanpulse_has_initialized', 'true');
+      localStorage.setItem(STORAGE_KEY_LOANS, '[]');
+      saveLoans();
     } catch (e) {
       console.warn('Error in loadLoans:', e);
-      const storedPlain = localStorage.getItem(STORAGE_KEY_LOANS);
-      if (storedPlain) {
-        try {
-          loans = JSON.parse(storedPlain);
-        } catch (err) {
-          loans = [];
-        }
-      } else {
-        loans = [];
-      }
+      loans = [];
     }
     renderAll();
   }
@@ -1330,9 +1309,9 @@
       if (el.metricNextDueDate) el.metricNextDueDate.textContent = `${cleanDueLabel} (${formatINR(nextUpcoming.loan.emi)})`;
       if (el.nextDueTicker) el.nextDueTicker.textContent = `Next: ${nextUpcoming.loan.name} — ${nextUpcoming.dueInfo.label}`;
     } else {
-      if (el.metricNextDue) el.metricNextDue.textContent = 'All Clear! 🎉';
-      if (el.metricNextDueDate) el.metricNextDueDate.textContent = 'All EMIs settled for this month';
-      if (el.nextDueTicker) el.nextDueTicker.textContent = 'All EMIs settled for this month';
+      if (el.metricNextDue) el.metricNextDue.textContent = loans.length === 0 ? 'No Active Loans' : 'All Clear! 🎉';
+      if (el.metricNextDueDate) el.metricNextDueDate.textContent = loans.length === 0 ? 'Add an EMI to start tracking' : 'All EMIs settled for this month';
+      if (el.nextDueTicker) el.nextDueTicker.textContent = loans.length === 0 ? 'Welcome to LoanPulse — Add your first EMI to begin' : 'All EMIs settled for this month';
     }
 
     // Update Mobile-Only Dedicated Fintech Card
@@ -1345,7 +1324,7 @@
       if (nextUpcoming) {
         mobNext.textContent = `${nextUpcoming.loan.name} • ${nextUpcoming.dueInfo.label}`;
       } else {
-        mobNext.textContent = 'All settled this month 🎉';
+        mobNext.textContent = loans.length === 0 ? 'No active loans' : 'All settled this month 🎉';
       }
     }
   }
@@ -2448,7 +2427,7 @@
 
     // Seed Data
     const handleSeed = () => {
-      if (confirm('Load sample demonstration loans (Creta Car Loan, SBI Home Loan, iPhone EMI)?')) {
+      if (confirm('Load sample demonstration loans (Sample Car Loan, Home Loan, Gadget EMI) to explore features?')) {
         loans = [...DEFAULT_LOANS];
         saveLoans();
         renderAll();

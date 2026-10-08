@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=25">
+  <link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
   <div class="app-wrapper">
@@ -271,8 +271,8 @@
           <div class="ulsb-content">
             <div class="ulsb-identity">
               <span class="ulsb-badge">👤 USER PORTFOLIO</span>
-              <h3 id="ulsbName">Sughan Rithvik</h3>
-              <span id="ulsbPhone" class="ulsb-phone">📱 9876543210</span>
+              <h3 id="ulsbName">-</h3>
+              <span id="ulsbPhone" class="ulsb-phone">📱 -</span>
             </div>
             <div class="ulsb-stats">
               <div class="ulsb-stat-pill">
@@ -302,12 +302,12 @@
 
         <!-- Empty State (shown if no loans) -->
         <div id="loansEmptyState" class="empty-state hidden">
-          <div class="empty-icon">📭</div>
-          <h3>No Loans Found</h3>
-          <p>Add your existing personal, home, car, or gadget EMIs to start tracking payment schedules and automated reminders.</p>
+          <div class="empty-icon">✨</div>
+          <h3>Welcome to LoanPulse!</h3>
+          <p>Your EMI tracker is fresh, private, and ready. Add your personal, home, car, or gadget EMIs to start tracking payment schedules and automated alerts. All data is stored locally and securely on your device.</p>
           <div class="empty-actions">
             <button class="btn btn-primary" id="emptyAddBtn">➕ Add Your First EMI</button>
-            <button class="btn btn-secondary" id="emptySeedBtn">✨ Load Demo Loans</button>
+            <button class="btn btn-secondary" id="emptySeedBtn" title="Load sample loans to test features">📋 Try Sample Demo</button>
           </div>
         </div>
       </section>
@@ -642,12 +642,12 @@
         <div class="form-row">
           <div class="form-group flex-1">
             <label for="formBorrowerName">👤 Borrower Name <span class="tag-opt">Optional</span></label>
-            <input type="text" id="formBorrowerName" placeholder="e.g. Self, Sughan, Father">
+            <input type="text" id="formBorrowerName" placeholder="e.g. Self, Family, Partner">
             <small class="form-help">Defaults to 'Self' if left blank</small>
           </div>
           <div class="form-group flex-1">
             <label for="formBorrowerPhone">📱 Mobile / WhatsApp <span class="tag-opt">Optional</span></label>
-            <input type="tel" id="formBorrowerPhone" placeholder="e.g. 9876543210 (For alerts)">
+            <input type="tel" id="formBorrowerPhone" placeholder="e.g. 98XXXXXXXX (For alerts)">
             <small class="form-help">Only needed for WhatsApp/SMS reminders</small>
           </div>
         </div>
@@ -953,7 +953,7 @@
 
       <div class="user-portfolio-search-box">
         <span class="search-icon">🔍</span>
-        <input type="text" id="userPortfolioSearchInput" placeholder="Search user / borrower (e.g. Sughan, Father)..." class="portfolio-search-input">
+        <input type="text" id="userPortfolioSearchInput" placeholder="Search user / borrower (e.g. Self, Family)..." class="portfolio-search-input">
       </div>
 
       <div class="user-portfolio-scroll" id="userPortfolioList">
@@ -995,6 +995,6 @@
     <div class="toast-message" id="toastMessage">Alert notification</div>
   </div>
 
-  <script src="app.js?v=25"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>
